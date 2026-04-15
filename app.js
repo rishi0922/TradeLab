@@ -374,6 +374,112 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    window.aggregateChartData = function(dailyData, timeframe) {
+        if (timeframe === '1D') return dailyData;
+
+        if (timeframe === '1W' || timeframe === '2W') {
+            const aggregated = [];
+            let currentCandle = null;
+            let currentPeriodStart = null;
+            const msPerWeek = 7 * 24 * 60 * 60 * 1000;
+            const isTwoWeek = timeframe === '2W';
+
+            dailyData.forEach((d) => {
+                const date = new Date(d.originalTime);
+                const day = date.getDay();
+                const diff = date.getDate() - day + (day === 0 ? -6 : 1);
+                const weekStart = new Date(date.setDate(diff));
+                weekStart.setHours(0, 0, 0, 0);
+
+                let periodStart = weekStart.getTime();
+
+                if (isTwoWeek) {
+                    const epochStart = new Date('2024-12-30').getTime();
+                    const weeksSinceEpoch = Math.floor((periodStart - epochStart) / msPerWeek);
+                    const evenWeek = weeksSinceEpoch - (weeksSinceEpoch % 2);
+                    periodStart = epochStart + (evenWeek * msPerWeek);
+                }
+
+                if (!currentPeriodStart || periodStart !== currentPeriodStart) {
+                    if (currentCandle) {
+                        aggregated.push(currentCandle);
+                    }
+                    currentPeriodStart = periodStart;
+                    const periodStartDate = new Date(periodStart);
+                    currentCandle = {
+                        time: periodStartDate.toISOString().split('T')[0],
+                        originalTime: new Date(periodStartDate),
+                        open: d.open,
+                        high: d.high,
+                        low: d.low,
+                        close: d.close,
+                        volume: d.volume || 0
+                    };
+                } else {
+                    currentCandle.high = Math.max(currentCandle.high, d.high);
+                    currentCandle.low = Math.min(currentCandle.low, d.low);
+                    currentCandle.close = d.close;
+                    if (d.volume) {
+                        currentCandle.volume = (currentCandle.volume || 0) + d.volume;
+                    }
+                }
+            });
+
+            if (currentCandle) {
+                aggregated.push(currentCandle);
+            }
+            return aggregated;
+        }
+
+        return dailyData;
+    };
+
+    window.fetchLiveStockData = async function(symbol, timeframe = '1D') {
+        let yahooSymbol = symbol;
+        if (!yahooSymbol.includes('.')) {
+            yahooSymbol += '.NS';
+        }
+
+        const p2 = Math.floor(Date.now() / 1000);
+        const p1 = p2 - (365 * 24 * 60 * 60);
+
+        const baseUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${yahooSymbol}?period1=${p1}&period2=${p2}&interval=1d`;
+        const url = `https://api.allorigins.win/get?url=${encodeURIComponent(baseUrl)}`;
+
+        try {
+            const response = await fetch(url);
+            if (!response.ok) return null;
+            const proxyData = await response.json();
+            const yfData = JSON.parse(proxyData.contents);
+            
+            const result = yfData.chart.result[0];
+            const timestamps = result.timestamp;
+            const quote = result.indicators.quote[0];
+
+            let dailyData = [];
+            for (let i = 0; i < timestamps.length; i++) {
+                if (quote.open[i] !== null && quote.close[i] !== null) {
+                    const date = new Date(timestamps[i] * 1000);
+                    dailyData.push({
+                        time: date.toISOString().split('T')[0],
+                        originalTime: new Date(date),
+                        open: quote.open[i],
+                        high: quote.high[i],
+                        low: quote.low[i],
+                        close: quote.close[i],
+                        volume: quote.volume[i] || 0
+                    });
+                }
+            }
+            
+            if (dailyData.length === 0) return null;
+            return window.aggregateChartData(dailyData, timeframe);
+        } catch (e) {
+            console.error("Failed to fetch live data from Yahoo:", e);
+            return null;
+        }
+    };
+
     window.generateData = function (symbol, timeframe = '1D') {
         let dailyData = [];
         const staticData = window.STATIC_MARKET_DATA ? window.STATIC_MARKET_DATA[symbol || 'TCS'] : null;
@@ -411,68 +517,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
-        if (timeframe === '1D') return dailyData;
-
-        // Aggregate for periods
-        if (timeframe === '1W' || timeframe === '2W') {
-            const aggregated = [];
-            let currentCandle = null;
-            let currentPeriodStart = null;
-            const msPerWeek = 7 * 24 * 60 * 60 * 1000;
-            const isTwoWeek = timeframe === '2W';
-
-            dailyData.forEach((d) => {
-                const date = new Date(d.originalTime);
-                // JS Day: 0 (Sun) to 6 (Sat). Let's start week on Monday.
-                const day = date.getDay();
-                const diff = date.getDate() - day + (day === 0 ? -6 : 1);
-                // Monday of this date's week
-                const weekStart = new Date(date.setDate(diff));
-                weekStart.setHours(0, 0, 0, 0);
-
-                let periodStart = weekStart.getTime();
-
-                // If 2W, align to a reference epoch so it chunks into 2 week intervals
-                if (isTwoWeek) {
-                    const epochStart = new Date('2024-12-30').getTime(); // A known Monday
-                    const weeksSinceEpoch = Math.floor((periodStart - epochStart) / msPerWeek);
-                    // Floor to even week
-                    const evenWeek = weeksSinceEpoch - (weeksSinceEpoch % 2);
-                    periodStart = epochStart + (evenWeek * msPerWeek);
-                }
-
-                if (!currentPeriodStart || periodStart !== currentPeriodStart) {
-                    if (currentCandle) {
-                        aggregated.push(currentCandle);
-                    }
-                    currentPeriodStart = periodStart;
-                    const periodStartDate = new Date(periodStart);
-                    currentCandle = {
-                        time: periodStartDate.toISOString().split('T')[0],
-                        originalTime: new Date(periodStartDate),
-                        open: d.open,
-                        high: d.high,
-                        low: d.low,
-                        close: d.close,
-                        volume: d.volume || 0
-                    };
-                } else {
-                    currentCandle.high = Math.max(currentCandle.high, d.high);
-                    currentCandle.low = Math.min(currentCandle.low, d.low);
-                    currentCandle.close = d.close;
-                    if (d.volume) {
-                        currentCandle.volume = (currentCandle.volume || 0) + d.volume;
-                    }
-                }
-            });
-
-            if (currentCandle) {
-                aggregated.push(currentCandle);
-            }
-            return aggregated;
-        }
-
-        return dailyData;
+        return window.aggregateChartData(dailyData, timeframe);
     }
 
     function generateFinancialData(symbol) {
@@ -992,7 +1037,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
 
-    function renderChart(symbol, timeframe = '1D') {
+    async function renderChart(symbol, timeframe = '1D') {
         updateView('view-charts');
         window.currentTimeframe = timeframe;
 
@@ -1101,8 +1146,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (window.candleSeries) {
             try {
-                const data = window.generateData(symbol, timeframe);
-                console.log(`Generated ${data.length} candles for ${symbol} @ ${timeframe}`);
+                const legendTitle = document.getElementById('chart-title');
+                if (legendTitle) legendTitle.textContent = `${symbol} (Loading Live...)`;
+                
+                let data = await window.fetchLiveStockData(symbol, timeframe);
+                
+                if (data && data.length > 0) {
+                    console.log(`Fetched LIVE data: ${data.length} candles for ${symbol} @ ${timeframe}`);
+                    if (legendTitle) legendTitle.textContent = `${symbol} (LIVE)`;
+                } else {
+                    console.log("Fallback to generated/static data");
+                    data = window.generateData(symbol, timeframe);
+                    if (legendTitle) legendTitle.textContent = `${symbol} (SIMULATED)`;
+                    console.log(`Generated ${data.length} candles for ${symbol} @ ${timeframe}`);
+                }
 
                 if (data && data.length > 0) {
                     window.currentChartData = data;
