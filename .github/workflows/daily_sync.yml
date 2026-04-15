@@ -1,0 +1,34 @@
+name: Daily Sync Financial Data
+
+on:
+  schedule:
+    - cron: '0 12 * * *' # 12:00 PM UTC -> 5:30 PM IST every day
+  workflow_dispatch: # Allow manual trigger
+
+jobs:
+  update-data:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Dependencies
+        run: npm install yahoo-finance2 axios
+
+      - name: Fetch and Sync Data
+        run: node fetch_data.js
+        env:
+          ALPHA_VANTAGE_KEY: AE24KMMTSA6TNRYW
+
+      - name: Commit Updated Data
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add static_data.js
+          git commit -m "chore(data): daily sync of market fundamentals & earnings" || echo "No changes to commit"
+          git push

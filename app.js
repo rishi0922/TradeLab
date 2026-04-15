@@ -935,16 +935,20 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
 
+        const staticData = window.STATIC_MARKET_DATA ? window.STATIC_MARKET_DATA[symbol] : null;
+        const dataSource = staticData && staticData.source ? staticData.source : 'Live API Simulation';
+        
         if (type === 'fund-view-valuation') {
-            if (subtitle) subtitle.textContent = "VALUATION METRICS";
+            if (subtitle) subtitle.innerHTML = `VALUATION METRICS <span class="text-xs text-indigo-400 ml-2 font-mono bg-indigo-500/10 px-2 py-0.5 rounded">Source: ${dataSource}</span>`;
             if (viewValuation) {
                 viewValuation.classList.remove('hidden');
-                const staticData = window.STATIC_MARKET_DATA ? window.STATIC_MARKET_DATA[symbol] : null;
+                
                 if (staticData && staticData.fundamentals) {
                     document.getElementById('val-pe').textContent = staticData.fundamentals.pe;
                     document.getElementById('val-mcap').textContent = staticData.fundamentals.mcap;
                     document.getElementById('val-pb').textContent = staticData.fundamentals.pb;
-                    document.getElementById('val-div').textContent = staticData.fundamentals.divYield + "%";
+                    const divY = staticData.fundamentals.divYield;
+                    document.getElementById('val-div').textContent = divY.includes('%') ? divY : divY + "%";
                 } else {
                     const valRng = symbol.charCodeAt(0) || 1;
                     document.getElementById('val-pe').textContent = ((valRng % 30) + 10).toFixed(2);
@@ -954,19 +958,26 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
         } else if (type === 'fund-view-financials') {
-            if (subtitle) subtitle.textContent = "FINANCIAL REPORTS";
+            if (subtitle) subtitle.innerHTML = `FINANCIAL REPORTS <span class="text-xs text-indigo-400 ml-2 font-mono bg-indigo-500/10 px-2 py-0.5 rounded">Source: ${dataSource}</span>`;
             if (viewFinancials) {
                 viewFinancials.classList.remove('hidden');
                 renderFinancialsTable(symbol);
             }
         } else if (type === 'fund-view-earnings') {
-            if (subtitle) subtitle.textContent = "EARNINGS HISTORY";
+            if (subtitle) subtitle.innerHTML = `EARNINGS HISTORY <span class="text-xs text-indigo-400 ml-2 font-mono bg-indigo-500/10 px-2 py-0.5 rounded">Source: ${dataSource}</span>`;
             if (viewValuation) viewValuation.classList.remove('hidden');
         }
     }
 
     function renderFinancialsTable(symbol) {
-        const data = generateFinancialData(symbol);
+        const staticData = window.STATIC_MARKET_DATA ? window.STATIC_MARKET_DATA[symbol] : null;
+        let data = generateFinancialData(symbol); // Fallback mock
+        
+        if (staticData && staticData.earnings && staticData.earnings.yearly && staticData.earnings.yearly.length > 0) {
+            data = staticData.earnings;
+            if (!data.quarterly) data.quarterly = [];
+        }
+
         const periodSelect = document.getElementById('financial-period-select');
         const tableBody = document.getElementById('financial-table-body');
 
