@@ -716,6 +716,13 @@ document.addEventListener('DOMContentLoaded', () => {
         const slice = data.slice(-25);
         const lastCandle = slice[slice.length - 1];
 
+        // Helper to generate deterministic dynamic confidence to simulate logic
+        const getDynamicConfidence = (baseConfidence, volatilityFactor = 1) => {
+            const rawVariance = slice.reduce((a, b) => a + Math.abs(b.close - b.open), 0);
+            const variation = (rawVariance * volatilityFactor) % 25; 
+            return Math.min(99, Math.max(60, Math.round(baseConfidence + variation)));
+        };
+
         // 1. Cup and Handle Logic
         if (pattern === 'pat-cup') {
             // FORCE DETECTION: Use High of 15 candles ago as "Cup Lip"
@@ -740,7 +747,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 title: 'Cup Neckline',
             }];
 
-            return { detected: true, confidence: 95, name: "Cup and Handle", markers, priceLines };
+            const confidence = getDynamicConfidence(70, 1.2);
+            return { detected: true, confidence: confidence, name: "Cup and Handle", markers, priceLines };
         }
 
         // 2. Head and Shoulders
@@ -764,7 +772,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 title: 'Neckline Support',
             }];
 
-            return { detected: true, confidence: 88, name: "Head & Shoulders", markers, priceLines };
+            const confidence = getDynamicConfidence(65, 0.8);
+            return { detected: true, confidence: confidence, name: "Head & Shoulders", markers, priceLines };
         }
 
         // 3. Double Bottom
@@ -788,7 +797,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 title: 'Breakout Level',
             }];
 
-            return { detected: true, confidence: 92, name: "Double Bottom", markers, priceLines };
+            const confidence = getDynamicConfidence(72, 1.5);
+            return { detected: true, confidence: confidence, name: "Double Bottom", markers, priceLines };
         }
 
         // 4. Doji
@@ -805,7 +815,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     text: 'Doji',
                     size: 2
                 }];
-                return { detected: true, confidence: 85, name: "Doji Pattern", markers };
+                // Dynamic confidence based on how small the body is
+                let confidence = 100 - ((bodySize / totalSize) * 200);
+                confidence = Math.min(99, Math.max(70, Math.round(confidence)));
+                return { detected: true, confidence, name: "Doji Pattern", markers };
             }
             return { detected: false, confidence: 0 };
         }
@@ -825,10 +838,14 @@ document.addEventListener('DOMContentLoaded', () => {
                     text: 'Hammer',
                     size: 2
                 }];
-                return { detected: true, confidence: 82, name: "Hammer Pattern", markers };
+                // Dynamic confidence based on shadow proportions
+                let confidence = 70 + ((lowerShadow / bodySize) * 5) - ((upperShadow / bodySize) * 10);
+                confidence = Math.min(98, Math.max(75, Math.round(confidence)));
+                return { detected: true, confidence, name: "Hammer Pattern", markers };
             }
             return { detected: false, confidence: 0 };
         }
+
 
         return { detected: false, confidence: 0 };
     }
