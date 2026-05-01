@@ -1261,3 +1261,240 @@ body {
 
 /* Search result first-row highlight (keyboard nav cue) */
 .sr-row.highlight { background: rgba(255,255,255,0.04); }
+
+
+/* ===========================================================================
+ * NiftyStrat Pro — Glassmorphism & UI Enhancements
+ * =========================================================================== */
+
+/* Glassmorphism Tokens */
+:root {
+  --glass-bg: rgba(22, 30, 45, 0.65);
+  --glass-border: rgba(255, 255, 255, 0.1);
+  --glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+  --glass-blur: blur(12px);
+}
+
+.glass-panel {
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
+  border-radius: var(--radius-lg);
+}
+
+/* Enhancing existing structural cards with subtle glass hints */
+.dash-card, .pane, .drawer-content {
+  border: 1px solid var(--line);
+  background: linear-gradient(180deg, var(--bg-2) 0%, rgba(17,24,39,0.9) 100%);
+}
+
+/* Strategy Detail Overlay (Full Screen Focus) */
+.strategy-overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  z-index: 100;
+  background: rgba(11, 15, 26, 0.85);
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+}
+.strategy-overlay.active {
+  opacity: 1;
+  pointer-events: auto;
+}
+.strategy-overlay-content {
+  width: 90%;
+  max-width: 1200px;
+  height: 85vh;
+  display: grid;
+  grid-template-rows: 60px 1fr;
+  overflow: hidden;
+  animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+@keyframes slideUp {
+  from { transform: translateY(40px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+.strategy-overlay-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 24px;
+  border-bottom: 1px solid var(--glass-border);
+}
+.strategy-overlay-title {
+  font-size: 20px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.close-overlay-btn {
+  background: none;
+  border: none;
+  color: var(--text-mut);
+  font-size: 24px;
+  cursor: pointer;
+  padding: 4px;
+}
+.close-overlay-btn:hover { color: var(--text); }
+
+.strategy-overlay-body {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 20px;
+  padding: 24px;
+  overflow-y: auto;
+}
+
+/* Signal Badges & Cards */
+.signal-card {
+  padding: 16px;
+  border-radius: var(--radius);
+  background: var(--bg-3);
+  border: 1px solid var(--line);
+  margin-bottom: 16px;
+}
+.signal-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+}
+.signal-badge.buy { background: var(--pos-soft); color: var(--pos); }
+.signal-badge.sell { background: var(--neg-soft); color: var(--neg); }
+.signal-badge.hold { background: rgba(245,158,11,0.12); color: var(--warn); }
+
+.trigger-list {
+  list-style: none;
+  padding: 0; margin: 12px 0 0 0;
+}
+.trigger-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  padding: 6px 0;
+  border-top: 1px dashed var(--line);
+}
+.trigger-item:first-child { border-top: none; }
+.trigger-icon {
+  width: 16px; height: 16px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 10px;
+}
+.trigger-icon.met { background: var(--pos); color: #000; }
+.trigger-icon.unmet { background: var(--bg-2); border: 1px solid var(--line); color: var(--text-mut); }
+
+/* Community Hub */
+.community-feed {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 16px;
+}
+.comm-message {
+  display: flex;
+  gap: 12px;
+  padding: 12px;
+  background: rgba(0,0,0,0.2);
+  border-radius: var(--radius);
+}
+.comm-avatar {
+  width: 32px; height: 32px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #fff;
+  display: flex; align-items: center; justify-content: center;
+  font-weight: bold;
+  font-size: 14px;
+}
+.comm-content { flex: 1; }
+.comm-header {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 4px;
+  font-size: 12px;
+}
+.comm-user { font-weight: 600; color: var(--text); }
+.comm-text { font-size: 13px; color: var(--text-mut); line-height: 1.4; }
+
+/* Strategy Filters */
+.strategy-filters {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+.filter-btn {
+  background: var(--bg-3);
+  border: 1px solid var(--line);
+  color: var(--text-mut);
+  padding: 8px 16px;
+  border-radius: 20px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.filter-btn:hover { background: var(--bg-2); color: var(--text); }
+.filter-btn.active {
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+  border-color: var(--accent);
+}
+
+/* Strategy Spotlight & Newbie Path on Dashboard */
+.spotlight-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+}
+.newbie-path {
+  background: linear-gradient(135deg, rgba(99,102,241,0.1) 0%, rgba(139,92,246,0.1) 100%);
+  border: 1px solid rgba(139,92,246,0.2);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+  margin-bottom: 24px;
+}
+.newbie-header {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 16px;
+}
+.newbie-title { font-size: 16px; font-weight: 600; color: #a78bfa; }
+.newbie-progress {
+  font-size: 13px; color: var(--text-mut);
+}
+.newbie-tasks {
+  display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px;
+}
+.newbie-task {
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  padding: 12px;
+  border-radius: var(--radius);
+  display: flex; align-items: center; gap: 12px;
+  cursor: pointer;
+  transition: border-color 0.2s;
+}
+.newbie-task:hover { border-color: #a78bfa; }
+.newbie-task.done .task-check {
+  background: #10b981; border-color: #10b981; color: #fff;
+}
+.task-check {
+  width: 20px; height: 20px;
+  border-radius: 50%;
+  border: 1px solid var(--line-2);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 10px; color: transparent;
+}
+.task-label { font-size: 13px; color: var(--text); }

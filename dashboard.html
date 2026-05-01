@@ -84,6 +84,34 @@
           </div>
         </div>
 
+        <div id="newbie-path-container" class="newbie-path">
+          <div class="newbie-header">
+            <div class="newbie-title">NiftyStrat Pro: Getting Started</div>
+            <div class="newbie-progress"><span id="newbie-prog-text">0</span>/3 Completed</div>
+          </div>
+          <div class="newbie-tasks">
+            <div class="newbie-task" id="task-dashboard">
+              <div class="task-check">✓</div>
+              <div class="task-label">Explore the Intelligent Dashboard</div>
+            </div>
+            <div class="newbie-task" id="task-strategy">
+              <div class="task-check">✓</div>
+              <div class="task-label">View a Strategy Signal Card</div>
+            </div>
+            <div class="newbie-task" id="task-community">
+              <div class="task-check">✓</div>
+              <div class="task-label">Check the Community Hub</div>
+            </div>
+          </div>
+        </div>
+
+        <section class="card glass-panel" style="margin-bottom: 24px;">
+          <div class="card-head"><h2>Strategy Spotlight</h2></div>
+          <div id="spotlight-container" class="spotlight-grid">
+            <!-- Populated by JS -->
+          </div>
+        </section>
+
         <div id="indices-strip" class="indices-strip"></div>
 
         <section class="card">
@@ -189,7 +217,14 @@
       <div id="tab-strategies" class="tab-pane hidden">
         <div class="page-head">
           <h1>Strategies</h1>
-          <p class="muted">Backtested logic blocks. Open one to inspect, tune parameters, or promote it to Paper-Forward.</p>
+          <p class="muted">Actionable, indicator-based strategies for Nifty 50 stocks.</p>
+        </div>
+
+        <div class="strategy-filters" id="strategy-filters">
+          <button class="filter-btn active" data-filter="All">All Strategies</button>
+          <button class="filter-btn" data-filter="Technical">Technical</button>
+          <button class="filter-btn" data-filter="Fundamental">Fundamental</button>
+          <button class="filter-btn" data-filter="Hybrid">Hybrid</button>
         </div>
 
         <div id="strategies-grid" class="strategies-grid"></div>
@@ -366,7 +401,47 @@
   <div id="toast-stack" class="toast-stack"></div>
 
   <!-- Scripts -->
+  <div id="strategy-overlay" class="strategy-overlay">
+    <div class="strategy-overlay-content glass-panel">
+      <div class="strategy-overlay-header">
+        <div class="strategy-overlay-title">
+          <span id="overlay-strat-name">Strategy Name</span>
+          <span id="overlay-strat-badge" class="signal-badge buy">BUY</span>
+        </div>
+        <button id="close-overlay" class="close-overlay-btn">×</button>
+      </div>
+      <div class="strategy-overlay-body">
+        <div class="overlay-main">
+          <h3 style="margin-top:0">Actionable Signals & Chart</h3>
+          <p id="overlay-strat-blurb" class="muted small"></p>
+          <div class="signal-card">
+            <h4>Live Triggers</h4>
+            <ul id="overlay-triggers" class="trigger-list"></ul>
+          </div>
+          <div id="overlay-chart" class="strat-chart" style="height: 300px; margin-top: 16px;"></div>
+          
+          <div style="margin-top: 24px;">
+            <h4>Analyst Note</h4>
+            <p id="overlay-analyst-note" class="muted small" style="line-height: 1.5; background: rgba(0,0,0,0.2); padding: 12px; border-radius: var(--radius); border: 1px solid var(--line);"></p>
+          </div>
+        </div>
+        
+        <div class="overlay-sidebar">
+          <h3 style="margin-top:0">Key Metrics</h3>
+          <div id="overlay-stats" class="strat-detail-stats" style="grid-template-columns: 1fr 1fr; margin-bottom: 24px;"></div>
+          
+          <h3>Fundamental Snapshot</h3>
+          <div id="overlay-fundamentals" class="strat-detail-params" style="margin-bottom: 24px;"></div>
+          
+          <h3>Community Hub</h3>
+          <div id="overlay-community" class="community-feed"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <script src="lightweight-charts.js"></script>
+  <script src="fetch_data.js"></script>
   <script src="static_data.js"></script>
   <script src="app.js"></script>
 </body>

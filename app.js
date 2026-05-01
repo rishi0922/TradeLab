@@ -797,6 +797,48 @@
   const Views = {};
 
   Views['tab-dashboard'] = () => {
+    // Newbie Path Logic
+    const newbieTasks = JSON.parse(localStorage.getItem('tl_newbie') || '{"dashboard":true, "strategy":false, "community":false}');
+    const updateNewbie = () => {
+      let done = 0;
+      ['dashboard', 'strategy', 'community'].forEach(k => {
+        if (newbieTasks[k]) { $('#task-' + k).classList.add('done'); done++; }
+      });
+      if ($('#newbie-prog-text')) $('#newbie-prog-text').textContent = done;
+    };
+    updateNewbie();
+
+    // Strategy Spotlight
+    if ($('#spotlight-container')) {
+      $('#spotlight-container').innerHTML = TL.STATIC.strategies.slice(0, 3).map(s => `
+        <div class="strat-card tone-${s.tone}" data-id="${s.id}" style="background:var(--bg-3)">
+          <div class="strat-head">
+            <div>
+              <div class="strat-name">${s.name}</div>
+              <div class="strat-blurb" style="display:inline-block; margin-top:8px;">
+                <span class="signal-badge ${s.signal.toLowerCase()}">${s.signal}</span>
+                <span style="font-size:12px; margin-left:6px; color:var(--text-mut)">${s.confidence}% Conviction</span>
+              </div>
+            </div>
+            <span class="tag">${s.tag}</span>
+          </div>
+          <div class="strat-stats" style="margin-top:12px;">
+            <div><span>Win Rate</span><b>${s.stats.winRate}%</b></div>
+            <div><span>Risk</span><b>${s.riskLevel}</b></div>
+            <div><span>Type</span><b>${s.type}</b></div>
+          </div>
+          <button class="btn-primary" data-id="${s.id}" data-act="open" style="width:100%; margin-top:16px;">View Analysis</button>
+        </div>`).join('');
+        
+      $('#spotlight-container').onclick = (e) => {
+        const b = e.target.closest('button'); if (!b) return;
+        if (b.dataset.act === 'open') {
+          newbieTasks.strategy = true; localStorage.setItem('tl_newbie', JSON.stringify(newbieTasks)); updateNewbie();
+          openStrategyOverlay(b.dataset.id);
+        }
+      };
+    }
+
     const indices = ['NIFTY50', 'BANKNIFTY', 'NIFTYIT'];
     $('#indices-strip').innerHTML = indices.map(s => {
       const q = state.quotes[s] || {};
@@ -940,60 +982,131 @@
       <div class="kpi big"><span>Currency</span><b>${f.currency}</b></div>`;
   };
 
+  let currentStrategyFilter = 'All';
+
   Views['tab-strategies'] = () => {
     const root = $('#strategies-grid');
-    root.innerHTML = TL.STATIC.strategies.map(s => `
-      <div class="strat-card tone-${s.tone}" data-id="${s.id}">
-        <div class="strat-head">
-          <div>
-            <div class="strat-name">${s.name}</div>
-            <div class="strat-blurb">${s.blurb}</div>
+    
+    // Filter Bindings
+    const filterBtns = $$('#strategy-filters .filter-btn');
+    if (filterBtns.length > 0) {
+      filterBtns.forEach(b => {
+        b.onclick = () => {
+          filterBtns.forEach(x => x.classList.remove('active'));
+          b.classList.add('active');
+          currentStrategyFilter = b.dataset.filter;
+          renderStrategiesGrid();
+        };
+      });
+    }
+
+    const renderStrategiesGrid = () => {
+      const filtered = TL.STATIC.strategies.filter(s => currentStrategyFilter === 'All' || s.type === currentStrategyFilter);
+      root.innerHTML = filtered.map(s => `
+        <div class="strat-card tone-${s.tone}" data-id="${s.id}">
+          <div class="strat-head">
+            <div>
+              <div class="strat-name">${s.name}</div>
+              <div class="strat-blurb">${s.blurb}</div>
+            </div>
+            <span class="tag">${s.tag}</span>
           </div>
-          <span class="tag">${s.tag}</span>
-        </div>
-        <div class="strat-stats">
-          <div><span>Win Rate</span><b>${s.stats.winRate}%</b></div>
-          <div><span>P/L</span><b class="${s.stats.pl >= 0 ? 'pos' : 'neg'}">${fmt.pct(s.stats.pl)}</b></div>
-          <div><span>Sharpe</span><b>${s.stats.sharpe}</b></div>
-          <div><span>Max DD</span><b class="neg">${s.stats.dd}%</b></div>
-        </div>
-        <div class="strat-actions">
-          <button class="btn-primary" data-id="${s.id}" data-act="open">Open</button>
-          <button class="btn-ghost"   data-id="${s.id}" data-act="backtest">Backtest</button>
-          <button class="btn-ghost"   data-id="${s.id}" data-act="paper">Paper-Forward</button>
-        </div>
-      </div>`).join('');
-    // Re-bind on every render (no { once: true } — strategies tab gets opened repeatedly)
+          <div style="margin-top:12px; margin-bottom: 12px;">
+            <span class="signal-badge ${s.signal.toLowerCase()}">${s.signal}</span>
+            <span style="font-size:12px; margin-left:8px; color:var(--text-mut)">${s.riskLevel} Risk • ${s.successRate}% Success</span>
+          </div>
+          <div class="strat-stats">
+            <div><span>Win Rate</span><b>${s.stats.winRate}%</b></div>
+            <div><span>P/L</span><b class="${s.stats.pl >= 0 ? 'pos' : 'neg'}">${fmt.pct(s.stats.pl)}</b></div>
+            <div><span>Sharpe</span><b>${s.stats.sharpe}</b></div>
+            <div><span>Max DD</span><b class="neg">${s.stats.dd}%</b></div>
+          </div>
+          <div class="strat-actions">
+            <button class="btn-primary" data-id="${s.id}" data-act="open" style="width:100%">Analyze & Detail View</button>
+          </div>
+        </div>`).join('');
+    };
+
+    renderStrategiesGrid();
+
     root.onclick = (e) => {
       const b = e.target.closest('button'); if (!b) return;
-      const s = TL.STATIC.strategies.find(x => x.id === b.dataset.id); if (!s) return;
-      const act = b.dataset.act;
-      const det = $('#strategy-detail');
-      if (act === 'open' || act === 'backtest') {
-        det.classList.remove('hidden');
-        $('#strat-det-name').textContent  = s.name;
-        $('#strat-det-blurb').textContent = s.blurb;
-        $('#strat-det-stats').innerHTML = `
-          <div><span>Win Rate</span><b>${s.stats.winRate}%</b></div>
-          <div><span>Profit Factor</span><b>${s.stats.profitFactor}</b></div>
-          <div><span>Sharpe</span><b>${s.stats.sharpe}</b></div>
-          <div><span>Max Drawdown</span><b class="neg">${s.stats.dd}%</b></div>
-          <div><span>Trades</span><b>${s.stats.trades.toLocaleString()}</b></div>
-          <div><span>Expected P/L</span><b class="${s.stats.pl >= 0 ? 'pos' : 'neg'}">${fmt.pct(s.stats.pl)}</b></div>`;
-        $('#strat-det-params').innerHTML = Object.entries(s.params).map(([k, v]) => `
-          <label>
-            <span>${k}</span>
-            <input type="number" data-key="${k}" value="${v}">
-          </label>`).join('');
-        renderStrategyChart(s);
-        det.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      if (b.dataset.act === 'open') {
+        const newbieTasks = JSON.parse(localStorage.getItem('tl_newbie') || '{"dashboard":true, "strategy":false, "community":false}');
+        newbieTasks.strategy = true; localStorage.setItem('tl_newbie', JSON.stringify(newbieTasks));
+        openStrategyOverlay(b.dataset.id);
       }
-      if (act === 'paper') toast(`${s.name} promoted to Paper-Forward (1-week live data, no money).`, 'ok');
     };
   };
 
+  window.openStrategyOverlay = (id) => {
+    const s = TL.STATIC.strategies.find(x => x.id === id); if (!s) return;
+    const overlay = $('#strategy-overlay');
+    overlay.classList.add('active');
+    
+    $('#overlay-strat-name').textContent = s.name;
+    $('#overlay-strat-badge').textContent = s.signal;
+    $('#overlay-strat-badge').className = `signal-badge ${s.signal.toLowerCase()}`;
+    $('#overlay-strat-blurb').textContent = s.blurb;
+    
+    $('#overlay-triggers').innerHTML = s.triggers.map(t => `
+      <li class="trigger-item">
+        <div class="trigger-icon ${t.met ? 'met' : 'unmet'}">${t.met ? '✓' : ''}</div>
+        <span>${t.label} <span class="muted small">(${t.type})</span></span>
+      </li>
+    `).join('');
+
+    $('#overlay-analyst-note').textContent = s.analystNote || 'No analyst notes available.';
+
+    $('#overlay-stats').innerHTML = `
+      <div><span>Win Rate</span><b>${s.stats.winRate}%</b></div>
+      <div><span>Success Rate</span><b>${s.successRate}%</b></div>
+      <div><span>Expected P/L</span><b class="${s.stats.pl >= 0 ? 'pos' : 'neg'}">${fmt.pct(s.stats.pl)}</b></div>
+      <div><span>Max Drawdown</span><b class="neg">${s.stats.dd}%</b></div>
+      <div><span>Sharpe Ratio</span><b>${s.stats.sharpe}</b></div>
+      <div><span>Risk Level</span><b>${s.riskLevel}</b></div>`;
+
+    if (s.fundamentals) {
+      $('#overlay-fundamentals').innerHTML = Object.entries(s.fundamentals).map(([k,v]) => {
+        if(k.startsWith('ind')) return '';
+        const isBetter = k === 'pe' ? (v < s.fundamentals['indPe']) : (k === 'roe' ? (v > s.fundamentals['indRoe']) : null);
+        let color = isBetter === true ? 'var(--pos)' : (isBetter === false ? 'var(--neg)' : 'inherit');
+        return `
+        <label>
+          <span>${k.toUpperCase()}</span>
+          <span style="color:${color}; font-weight:600;">${v} <span class="muted small" style="font-weight:400">(Ind: ${s.fundamentals['ind'+k.charAt(0).toUpperCase() + k.slice(1)]})</span></span>
+        </label>`;
+      }).join('');
+    } else {
+      $('#overlay-fundamentals').innerHTML = '<p class="muted">No fundamental data configured.</p>';
+    }
+
+    if (s.community && s.community.length > 0) {
+      $('#overlay-community').innerHTML = s.community.map(c => `
+        <div class="comm-message">
+          <div class="comm-avatar">${c.avatar}</div>
+          <div class="comm-content">
+            <div class="comm-header">
+              <span class="comm-user">${c.user}</span>
+              <span class="muted">${fmt.rel(c.ts)}</span>
+            </div>
+            <div class="comm-text">${c.msg}</div>
+          </div>
+        </div>
+      `).join('');
+    } else {
+      $('#overlay-community').innerHTML = '<p class="muted">No recent community discussion.</p>';
+    }
+
+    renderStrategyChart(s);
+  };
+
+  if ($('#close-overlay')) {
+    $('#close-overlay').onclick = () => $('#strategy-overlay').classList.remove('active');
+  }
+
   const renderStrategyChart = (s) => {
-    const el = $('#strat-chart');
+    const el = $('#overlay-chart');
     if (!el || !window.LightweightCharts) return;
     el.innerHTML = '';
     const ch = LightweightCharts.createChart(el, {
