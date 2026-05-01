@@ -721,14 +721,32 @@
     });
   };
 
+  // Visible error surface — used so silent failures don't leave a blank page.
+  const showFatal = (err) => {
+    console.error('[TradeLab]', err);
+    const stack = document.getElementById('toast-stack');
+    if (!stack) return;
+    const div = document.createElement('div');
+    div.className = 'tl-toast tone-err show';
+    div.style.cssText = 'opacity:1; transform:translateY(0); max-width:520px; white-space:pre-wrap;';
+    div.textContent = 'Error: ' + (err && err.message || err);
+    stack.appendChild(div);
+  };
+
   // ───────────────────────── Tab Router ─────────────────────────
   const Router = {
     go(id) {
+      // Fall back to dashboard if the persisted activeTab no longer matches.
+      if (!document.getElementById(id)) id = 'tab-dashboard';
       state.activeTab = id;
       $$('.tab-pane').forEach(p => p.classList.toggle('hidden', p.id !== id));
       $$('.tab-link').forEach(l => l.classList.toggle('active', l.dataset.tab === id));
       persist();
-      const fn = Views[id]; if (fn) fn();
+      const fn = Views[id];
+      if (fn) {
+        try { fn(); }
+        catch (e) { showFatal(e); }
+      }
     },
     init() {
       $$('.tab-link').forEach(l => l.addEventListener('click', (e) => {
@@ -1303,33 +1321,44 @@
   };
 
   // ───────────────────────── Boot ─────────────────────────
-  const boot = async () => {
-    Env.apply();
-    Router.init();
-    Watchlist.init(); Watchlist.render();
-    Search.init();
-    initOrderDrawer();
-    initEnvModal();
-    initNotifications();
-    initChartsToolbar();
-    renderNotifications();
+  const safe = (label, fn) => {
+    try { return fn(); }
+    catch (e) { console.error(`[TradeLab] ${label} failed:`, e); showFatal(`${label}: ${e.message}`); }
+  };
 
-    bus.on('orders',   () => { if (state.activeTab === 'tab-orders')   Views['tab-orders'](); });
-    bus.on('holdings', () => { if (state.activeTab === 'tab-holdings') Views['tab-holdings'](); });
-    bus.on('funds',    () => { if (state.activeTab === 'tab-funds')    Views['tab-funds'](); });
+  const boot = async () => {
+    console.log('[TradeLab] booting…');
+    safe('Env',           () => Env.apply());
+    safe('Router',        () => Router.init());
+    safe('Watchlist',     () => { Watchlist.init(); Watchlist.render(); });
+    safe('Search',        () => Search.init());
+    safe('OrderDrawer',   () => initOrderDrawer());
+    safe('EnvModal',      () => initEnvModal());
+    safe('Notifications', () => { initNotifications(); renderNotifications(); });
+    safe('ChartsToolbar', () => initChartsToolbar());
+
+    bus.on('orders',   () => { if (state.activeTab === 'tab-orders')   safe('orders view',   () => Views['tab-orders']()); });
+    bus.on('holdings', () => { if (state.activeTab === 'tab-holdings') safe('holdings view', () => Views['tab-holdings']()); });
+    bus.on('funds',    () => { if (state.activeTab === 'tab-funds')    safe('funds view',    () => Views['tab-funds']()); });
     bus.on('quotes',   () => {
-      if (state.activeTab === 'tab-dashboard') Views['tab-dashboard']();
-      if (state.activeTab === 'tab-holdings')  Views['tab-holdings']();
+      if (state.activeTab === 'tab-dashboard') safe('dashboard view', () => Views['tab-dashboard']());
+      if (state.activeTab === 'tab-holdings')  safe('holdings view',  () => Views['tab-holdings']());
     });
 
     const prime = [...new Set(['NIFTY50', 'BANKNIFTY', 'NIFTYIT',
       ...state.watchlist, ...state.holdings.map(h => h.sym), state.selected])];
-    await refreshQuotes(prime);
-    renderQuickPanel();
-    startPolling();
+    try { await refreshQuotes(prime); }
+    catch (e) { console.error('[TradeLab] prime quotes failed:', e); }
+    safe('quickPanel', () => renderQuickPanel());
+    safe('polling',    () => startPolling());
 
-    const fn = Views[state.activeTab]; if (fn) fn();
+    const fn = Views[state.activeTab];
+    if (fn) safe('initial view', () => fn());
+    console.log('[TradeLab] booted on', state.activeTab);
   };
+
+  window.addEventListener('error',            (e) => showFatal(e.error || e.message));
+  window.addEventListener('unhandledrejection', (e) => showFatal(e.reason));
 
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', boot);
