@@ -91,6 +91,20 @@
           <div id="dash-summary" class="kpi-row"></div>
         </section>
 
+        <section class="card">
+          <div class="card-head split">
+            <div>
+              <h2>NIFTY 50 — Live</h2>
+              <p class="muted small">5-minute candles, refreshed every 30s.</p>
+            </div>
+            <div class="chart-px">
+              <div id="dash-nifty-ltp" class="chart-ltp">—</div>
+              <div id="dash-nifty-pct" class="chart-pct">—</div>
+            </div>
+          </div>
+          <div id="dash-nifty-chart" class="dash-chart"></div>
+        </section>
+
         <div class="grid-2">
           <section class="card">
             <div class="card-head"><h2>Top Gainers</h2></div>
@@ -242,7 +256,37 @@
         </div>
 
         <section class="card">
+          <div class="chart-toolbar">
+            <div class="chart-tf-group">
+              <button class="chart-tf" data-range="5d"  data-interval="15m">5D</button>
+              <button class="chart-tf" data-range="1mo" data-interval="1d">1M</button>
+              <button class="chart-tf active" data-range="3mo" data-interval="1d">3M</button>
+              <button class="chart-tf" data-range="6mo" data-interval="1d">6M</button>
+              <button class="chart-tf" data-range="1y"  data-interval="1d">1Y</button>
+            </div>
+            <div class="chart-analysis">
+              <label for="analysis-select">Analysis</label>
+              <select id="analysis-select">
+                <optgroup label="Technical Indicators">
+                  <option value="ohlc">Standard OHLC</option>
+                  <option value="rsi">RSI + Volume</option>
+                  <option value="macd">MACD Momentum</option>
+                  <option value="sma">SMA 50/200</option>
+                  <option value="bollinger">Bollinger Bands</option>
+                </optgroup>
+                <optgroup label="Chart Patterns">
+                  <option value="pat-cup">Cup &amp; Handle</option>
+                  <option value="pat-head">Head &amp; Shoulders</option>
+                  <option value="pat-double">Double Bottom</option>
+                  <option value="pat-doji">Doji</option>
+                  <option value="pat-hammer">Hammer</option>
+                </optgroup>
+              </select>
+            </div>
+          </div>
           <div id="tv-chart" class="tv-chart"></div>
+          <div id="tv-sub" class="tv-sub hidden"></div>
+          <div id="analysis-insight" class="analysis-insight hidden"></div>
         </section>
 
         <section id="fund-panel" class="card hidden">
@@ -322,6 +366,54 @@
   <div id="toast-stack" class="toast-stack"></div>
 
   <!-- Scripts -->
+  <script src="lightweight-charts.js"></script>
+  <script src="static_data.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
+      <label><span>Order type</span>
+        <select id="od-type">
+          <option value="MARKET">Market</option>
+          <option value="LIMIT">Limit</option>
+        </select>
+      </label>
+      <label><span>Price</span><input id="od-price" type="number" step="0.05" /></label>
+
+      <div class="od-meta">
+        <div><span>LTP</span><b id="od-ltp">—</b></div>
+        <div><span>Order value</span><b id="od-total">—</b></div>
+        <div><span>Margin</span><b id="od-margin">—</b></div>
+      </div>
+
+      <p class="od-note muted small">Sandbox orders settle instantly against simulated capital. Switch the env pill to LIVE to route through your broker (typed confirmation required).</p>
+
+      <button id="od-submit" class="od-submit buy">Place BUY</button>
+    </div>
+  </aside>
+
+  <!-- ═══════════════════════ Env Confirmation Modal ═══════════════════════ -->
+  <div id="env-modal" class="modal hidden">
+    <div class="modal-card">
+      <h2>Switch to <span class="warn">LIVE</span> trading?</h2>
+      <p class="muted">Orders placed in LIVE route to your connected broker and use real capital. This preview simulates LIVE without a broker bridge — but TradeLab still wants the muscle memory of confirming.</p>
+      <ul class="modal-list">
+        <li>Sandbox positions remain untouched.</li>
+        <li>Strategies must clear Paper-Forward gates before deploying.</li>
+        <li>You can switch back to SANDBOX anytime from the env pill.</li>
+      </ul>
+      <label class="modal-input">
+        <span>Type <b>LIVE</b> to confirm</span>
+        <input id="env-confirm-input" type="text" autocomplete="off" />
+      </label>
+      <div class="modal-actions">
+        <button id="env-confirm-cancel" class="btn-ghost">Cancel</button>
+        <button id="env-confirm-go" class="btn-primary danger" disabled>Switch to LIVE</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast-stack" class="toast-stack"></div>
+
   <script src="lightweight-charts.js"></script>
   <script src="static_data.js"></script>
   <script src="app.js"></script>
