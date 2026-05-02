@@ -90,10 +90,13 @@
   const bySym = Object.fromEntries(TL.STATIC.stocks.map(s => [s.sym, s]));
 
   // ───────────────────────── Live data layer ─────────────────────────
-  const Q1 = 'https://query1.finance.yahoo.com';
+  const Q1 = ''; // The proxy handles the domain
   const PROXIES = [
-    u => 'https://api.codetabs.com/v1/proxy?quest=' + encodeURIComponent(u),
-    u => 'https://api.allorigins.win/raw?url=' + encodeURIComponent(u),
+    // Our Vercel Serverless Function proxy
+    u => `/api/yahoo?path=${encodeURIComponent(u)}`,
+    // Fallback public proxies (if local proxy fails)
+    u => 'https://api.codetabs.com/v1/proxy?quest=' + encodeURIComponent('https://query1.finance.yahoo.com' + u),
+    u => 'https://api.allorigins.win/raw?url=' + encodeURIComponent('https://query1.finance.yahoo.com' + u),
   ];
 
   const fetchJson = async (url, timeoutMs = 6000) => {
@@ -1317,7 +1320,22 @@
       $('#analysis-insight').classList.remove('hidden');
       $('#analysis-insight').innerHTML = `<b>Insight:</b> ${txt}`;
     };
-    showInsight(ANALYSIS_INSIGHT[type] || 'Standard candlestick view.');
+    // Platform Strategies Mapping
+    if (type === 'strat-golden-cross') {
+      type = 'sma'; // Use SMA to show golden cross
+      showInsight('<b>Golden Cross Strategy:</b> Look for the yellow 50-DMA crossing above the purple 200-DMA to trigger a BUY signal.');
+    } else if (type === 'strat-rsi-reversal') {
+      type = 'rsi'; // Use RSI to show reversal
+      showInsight('<b>RSI Reversal Strategy:</b> Wait for RSI to dip below 30 (oversold) and bounce back up to trigger a mean-reversion BUY.');
+    } else if (type === 'strat-value-hunter') {
+      type = 'ohlc'; // No specific indicator, just fundamentals
+      showInsight('<b>Value Hunter Strategy:</b> Focus on fundamental metrics below. Look for P/E < Industry Avg and ROE > 15%.');
+    } else if (type === 'strat-opening-range') {
+      type = 'bollinger'; // Use Bollinger to show volatility breakout
+      showInsight('<b>Opening Range Breakout:</b> Watch for price breaking out of the morning volatility bands (Bollinger) on high volume.');
+    } else {
+      showInsight(ANALYSIS_INSIGHT[type] || 'Standard candlestick view.');
+    }
 
     if (type === 'sma') {
       const sma50  = ind.sma(closes, 50);
