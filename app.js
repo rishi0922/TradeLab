@@ -168,22 +168,14 @@
     return out;
   };
 
-  const getMarketTime = () => {
-    const d = new Date();
-    const day = d.getUTCDay();
-    const h = d.getUTCHours();
-    const m = d.getUTCMinutes();
-    const timeInMin = h * 60 + m;
-    if (day === 0 || day === 6) {
-      d.setUTCDate(d.getUTCDate() - (day === 0 ? 2 : 1));
-      d.setUTCHours(10, 0, 0, 0);
-    } else if (timeInMin > 600) {
-      d.setUTCHours(10, 0, 0, 0);
-    } else if (timeInMin < 225) {
-      d.setUTCDate(d.getUTCDate() - (day === 1 ? 3 : 1));
-      d.setUTCHours(10, 0, 0, 0);
-    }
-    return d.getTime();
+  // Returns true when NSE is currently open (09:15–15:30 IST Mon–Fri).
+  const isMarketOpen = () => {
+    const now = new Date();
+    const day = now.getUTCDay(); // 0=Sun, 6=Sat
+    if (day === 0 || day === 6) return false;
+    const minUTC = now.getUTCHours() * 60 + now.getUTCMinutes();
+    // 09:15 IST = 03:45 UTC (225 min), 15:30 IST = 10:00 UTC (600 min)
+    return minUTC >= 225 && minUTC <= 600;
   };
 
   const refreshQuotes = async (syms) => {
@@ -196,8 +188,8 @@
     const result = (data && data.quoteResponse && data.quoteResponse.result) || [];
     const byYahoo = Object.fromEntries(result.map(r => [r.symbol, r]));
 
-    const ts = getMarketTime();
-    const isOpen = ts === Date.now() || Math.abs(ts - Date.now()) < 60000;
+    const ts = Date.now();
+    const open = isMarketOpen();
 
     syms.forEach(s => {
       const r = byYahoo[bySym[s].yahoo];
@@ -219,7 +211,7 @@
         
         let prev = lastCandlePrice ?? state.quotes[s]?.ltp ?? fb.close;
         let ltp = prev;
-        if (isOpen) {
+        if (open) {
             const wob = prev * (Math.random() - 0.5) * 0.002;
             ltp = +(prev + wob).toFixed(2);
         }
@@ -238,6 +230,11 @@
     bus.emit('quotes', syms);
   };
 
+  // IST is UTC+5:30 = 19800 seconds ahead. We shift Yahoo's UTC unix timestamps
+  // by +19800 so that LightweightCharts (which treats them as UTC) renders the
+  // correct IST label (e.g. 09:15 instead of 03:45).
+  const IST_OFFSET = 19800;
+
   const fetchCandles = async (sym, range = '3mo', interval = '1d', { fresh = false } = {}) => {
     const key = `${sym}_${range}_${interval}`;
     if (!fresh && state.candles[key]) return state.candles[key];
@@ -248,8 +245,9 @@
     if (r?.timestamp && r?.indicators?.quote?.[0]) {
       const ts = r.timestamp;
       const q  = r.indicators.quote[0];
+      // Shift timestamps by IST offset so chart labels show Indian times.
       const out = ts.map((t, i) => ({
-        time: t,
+        time: t + IST_OFFSET,
         open:  q.open?.[i]   ?? q.close?.[i],
         high:  q.high?.[i]   ?? q.close?.[i],
         low:   q.low?.[i]    ?? q.close?.[i],
@@ -257,6 +255,27 @@
         volume: q.volume?.[i] ?? 0
       })).filter(c => c.close != null);
       state.candles[key] = out;
+
+      // --- Populate quotes from chart meta (avoids rate-limited quote endpoint) ---
+      const m = r.meta;
+      if (m && typeof m.regularMarketPrice === 'number') {
+        const ltp = m.regularMarketPrice;
+        const prevClose = m.chartPreviousClose ?? m.previousClose ?? ltp;
+        const existing = state.quotes[sym] || {};
+        state.quotes[sym] = {
+          ltp,
+          prevClose,
+          change: ltp - prevClose,
+          pct: ((ltp - prevClose) / prevClose) * 100,
+          dayHigh: m.regularMarketDayHigh ?? Math.max(ltp, existing.dayHigh || 0),
+          dayLow:  m.regularMarketDayLow  ?? Math.min(ltp, existing.dayLow  || Infinity),
+          open:    m.regularMarketOpen    ?? prevClose,
+          ts: (m.regularMarketTime ?? Math.floor(Date.now()/1000)) * 1000,
+          live: true
+        };
+        bus.emit('quotes', [sym]);
+      }
+
       return out;
     }
     // Fallback: synthesise. Choose interval seconds by interval string.
@@ -1392,6 +1411,13 @@
     const candles = await fetchCandles(sym, state.chartRange, state.chartInterval);
     buildCharts(candles);
     applyAnalysis(state.analysisType, candles);
+    // After candles load they may have updated quotes; refresh the displayed price.
+    const qNow = state.quotes[sym] || {};
+    $('#chart-ltp').textContent = fmt.inr(qNow.ltp ?? TL.STATIC.fallback[sym]?.close ?? 0);
+    $('#chart-pct').textContent = fmt.pct(qNow.pct ?? 0);
+    $('#chart-pct').className = 'chart-pct ' + ((qNow.pct ?? 0) >= 0 ? 'pos' : 'neg');
+    Watchlist.render();
+    renderQuickPanel();
 
     const fd = window.STATIC_MARKET_DATA && window.STATIC_MARKET_DATA[sym];
     const fp = $('#fund-panel');
