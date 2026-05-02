@@ -168,6 +168,24 @@
     return out;
   };
 
+  const getMarketTime = () => {
+    const d = new Date();
+    const day = d.getUTCDay();
+    const h = d.getUTCHours();
+    const m = d.getUTCMinutes();
+    const timeInMin = h * 60 + m;
+    if (day === 0 || day === 6) {
+      d.setUTCDate(d.getUTCDate() - (day === 0 ? 2 : 1));
+      d.setUTCHours(10, 0, 0, 0);
+    } else if (timeInMin > 600) {
+      d.setUTCHours(10, 0, 0, 0);
+    } else if (timeInMin < 225) {
+      d.setUTCDate(d.getUTCDate() - (day === 1 ? 3 : 1));
+      d.setUTCHours(10, 0, 0, 0);
+    }
+    return d.getTime();
+  };
+
   const refreshQuotes = async (syms) => {
     syms = (syms || Object.keys(state.quotes).concat(state.watchlist).concat(state.holdings.map(h => h.sym)))
       .filter((v, i, a) => a.indexOf(v) === i)
@@ -177,6 +195,9 @@
     const data = await tryYahooQuote(yahoo);
     const result = (data && data.quoteResponse && data.quoteResponse.result) || [];
     const byYahoo = Object.fromEntries(result.map(r => [r.symbol, r]));
+
+    const ts = getMarketTime();
+    const isOpen = ts === Date.now() || Math.abs(ts - Date.now()) < 60000;
 
     syms.forEach(s => {
       const r = byYahoo[bySym[s].yahoo];
@@ -189,21 +210,28 @@
           dayHigh: r.regularMarketDayHigh,
           dayLow:  r.regularMarketDayLow,
           open:    r.regularMarketOpen,
-          ts: Date.now(), live: true
+          ts, live: true
         };
       } else {
+        const cands = state.candles[s+'_1d_5m'] || state.candles[s+'_3mo_1d'];
+        const lastCandlePrice = cands && cands.length ? cands[cands.length-1].close : null;
         const fb = TL.STATIC.fallback[s] || { close: 100, prevClose: 100 };
-        const prev = state.quotes[s]?.ltp ?? fb.close;
-        const wob = prev * (Math.random() - 0.5) * 0.004;
-        const ltp = +(prev + wob).toFixed(2);
+        
+        let prev = lastCandlePrice ?? state.quotes[s]?.ltp ?? fb.close;
+        let ltp = prev;
+        if (isOpen) {
+            const wob = prev * (Math.random() - 0.5) * 0.002;
+            ltp = +(prev + wob).toFixed(2);
+        }
+        
         state.quotes[s] = {
           ltp, prevClose: fb.prevClose,
           change: ltp - fb.prevClose,
           pct: ((ltp - fb.prevClose) / fb.prevClose) * 100,
-          dayHigh: Math.max(ltp, fb.close),
-          dayLow:  Math.min(ltp, fb.close * 0.99),
+          dayHigh: Math.max(ltp, state.quotes[s]?.dayHigh || 0, fb.close),
+          dayLow:  Math.min(ltp, state.quotes[s]?.dayLow || Infinity, fb.close * 0.99),
           open: fb.prevClose,
-          ts: Date.now(), live: false
+          ts, live: false
         };
       }
     });
