@@ -780,7 +780,7 @@
         rightPriceScale: { borderColor: 'rgba(255,255,255,0.06)' },
         crosshair: { mode: 1 }
       });
-      dashSeries = dashChart.addAreaSeries({
+      dashSeries = dashChart.addSeries(LightweightCharts.AreaSeries, {
         topColor: 'rgba(99,102,241,0.3)',
         bottomColor: 'rgba(99,102,241,0.0)',
         lineColor: '#818cf8',
@@ -1116,8 +1116,8 @@
       timeScale: { borderColor: 'rgba(255,255,255,0.06)' },
       rightPriceScale: { borderColor: 'rgba(255,255,255,0.06)' }
     });
-    const lab  = ch.addLineSeries({ color: '#818cf8', lineWidth: 2 });
-    const live = ch.addLineSeries({ color: '#34d399', lineWidth: 2, lineStyle: 2 });
+    const lab  = ch.addSeries(LightweightCharts.LineSeries, { color: '#818cf8', lineWidth: 2 });
+    const live = ch.addSeries(LightweightCharts.LineSeries, { color: '#34d399', lineWidth: 2, lineStyle: 2 });
     let v1 = 100, v2 = 100;
     const labData = [], liveData = [];
     const day = 86400;
@@ -1209,7 +1209,7 @@
       rightPriceScale: { borderColor: 'rgba(255,255,255,0.06)' },
       crosshair: { mode: 1 }
     });
-    mainSeries = mainChart.addCandlestickSeries({
+    mainSeries = mainChart.addSeries(LightweightCharts.CandlestickSeries, {
       upColor: '#10b981', downColor: '#ef4444',
       wickUpColor: '#10b981', wickDownColor: '#ef4444',
       borderUpColor: '#10b981', borderDownColor: '#ef4444',
@@ -1237,8 +1237,8 @@
     if (type === 'sma') {
       const sma50  = ind.sma(closes, 50);
       const sma200 = ind.sma(closes, 200);
-      const s50  = mainChart.addLineSeries({ color: '#fbbf24', lineWidth: 2, priceLineVisible: false, lastValueVisible: false });
-      const s200 = mainChart.addLineSeries({ color: '#a78bfa', lineWidth: 2, priceLineVisible: false, lastValueVisible: false });
+      const s50  = mainChart.addSeries(LightweightCharts.LineSeries, { color: '#fbbf24', lineWidth: 2, priceLineVisible: false, lastValueVisible: false });
+      const s200 = mainChart.addSeries(LightweightCharts.LineSeries, { color: '#a78bfa', lineWidth: 2, priceLineVisible: false, lastValueVisible: false });
       s50.setData(candles.map((c, i) => sma50[i]  != null ? { time: c.time, value: +sma50[i].toFixed(2) }  : null).filter(Boolean));
       s200.setData(candles.map((c, i) => sma200[i] != null ? { time: c.time, value: +sma200[i].toFixed(2) } : null).filter(Boolean));
       overlaySeriesList.push(s50, s200);
@@ -1246,9 +1246,9 @@
     }
     if (type === 'bollinger') {
       const { upper, middle, lower } = ind.bollinger(closes, 20, 2);
-      const u = mainChart.addLineSeries({ color: 'rgba(244,114,182,0.8)', lineWidth: 1, priceLineVisible: false, lastValueVisible: false });
-      const m = mainChart.addLineSeries({ color: 'rgba(244,114,182,0.5)', lineWidth: 1, lineStyle: 2, priceLineVisible: false, lastValueVisible: false });
-      const l = mainChart.addLineSeries({ color: 'rgba(244,114,182,0.8)', lineWidth: 1, priceLineVisible: false, lastValueVisible: false });
+      const u = mainChart.addSeries(LightweightCharts.LineSeries, { color: 'rgba(244,114,182,0.8)', lineWidth: 1, priceLineVisible: false, lastValueVisible: false });
+      const m = mainChart.addSeries(LightweightCharts.LineSeries, { color: 'rgba(244,114,182,0.5)', lineWidth: 1, lineStyle: 2, priceLineVisible: false, lastValueVisible: false });
+      const l = mainChart.addSeries(LightweightCharts.LineSeries, { color: 'rgba(244,114,182,0.8)', lineWidth: 1, priceLineVisible: false, lastValueVisible: false });
       u.setData(candles.map((c, i) => upper[i]  != null ? { time: c.time, value: +upper[i].toFixed(2) }  : null).filter(Boolean));
       m.setData(candles.map((c, i) => middle[i] != null ? { time: c.time, value: +middle[i].toFixed(2) } : null).filter(Boolean));
       l.setData(candles.map((c, i) => lower[i]  != null ? { time: c.time, value: +lower[i].toFixed(2) }  : null).filter(Boolean));
@@ -1256,7 +1256,7 @@
       return;
     }
     if (type === 'rsi') {
-      volSeries = mainChart.addHistogramSeries({
+      volSeries = mainChart.addSeries(LightweightCharts.HistogramSeries, {
         priceFormat: { type: 'volume' }, priceScaleId: '',
         scaleMargins: { top: 0.85, bottom: 0 },
       });
@@ -1275,7 +1275,7 @@
         rightPriceScale: { borderColor: 'rgba(255,255,255,0.06)' },
       });
       const rsiVals = ind.rsi(closes, 14);
-      const rsiS = subChart.addLineSeries({ color: '#22d3ee', lineWidth: 2 });
+      const rsiS = subChart.addSeries(LightweightCharts.LineSeries, { color: '#22d3ee', lineWidth: 2 });
       rsiS.setData(candles.map((c, i) => rsiVals[i] != null ? { time: c.time, value: +rsiVals[i].toFixed(2) } : null).filter(Boolean));
       rsiS.createPriceLine({ price: 70, color: 'rgba(239,68,68,0.6)', lineWidth: 1, lineStyle: 2 });
       rsiS.createPriceLine({ price: 30, color: 'rgba(16,185,129,0.6)', lineWidth: 1, lineStyle: 2 });
@@ -1293,9 +1293,9 @@
         rightPriceScale: { borderColor: 'rgba(255,255,255,0.06)' },
       });
       const m = ind.macd(closes, 12, 26, 9);
-      const macdLine = subChart.addLineSeries({ color: '#60a5fa', lineWidth: 2 });
-      const sigLine  = subChart.addLineSeries({ color: '#f97316', lineWidth: 2 });
-      const hist     = subChart.addHistogramSeries({ priceFormat: { type: 'price' } });
+      const macdLine = subChart.addSeries(LightweightCharts.LineSeries, { color: '#60a5fa', lineWidth: 2 });
+      const sigLine  = subChart.addSeries(LightweightCharts.LineSeries, { color: '#f97316', lineWidth: 2 });
+      const hist     = subChart.addSeries(LightweightCharts.HistogramSeries, { priceFormat: { type: 'price' } });
       macdLine.setData(candles.map((c, i) => m.macd[i]   != null ? { time: c.time, value: +m.macd[i].toFixed(4) }   : null).filter(Boolean));
       sigLine .setData(candles.map((c, i) => m.signal[i] != null ? { time: c.time, value: +m.signal[i].toFixed(4) } : null).filter(Boolean));
       hist    .setData(candles.map((c, i) => m.histogram[i] != null ? {
