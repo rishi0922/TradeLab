@@ -118,50 +118,49 @@
   const tryYahooChart = (yahooSym, range = '3mo', interval = '1d') =>
     tryAll(`${Q1}/v8/finance/chart/${yahooSym}?range=${range}&interval=${interval}`);
 
-  // Synthesised candle series from a seed close (fallback when fetch fails).
+  // Synthesised candle series (fallback when fetch fails).
+  // Timestamps are generated in IST-shifted space (i.e. already +19800s)
+  // so that LightweightCharts displays them as IST times without any extra offset.
   const synthesiseSeries = (closePrice, n = 90, intervalSec = 86400) => {
     let p = closePrice * 0.92;
     const out = [];
     let s = closePrice * 13.37;
     const rng = () => { s = (s * 9301 + 49297) % 233280; return s / 233280; };
-    
-    // Generate valid market timestamps (IST: UTC+5:30 -> 03:45 to 10:00 UTC)
+
+    // Build a list of valid market timestamps in IST-shifted UTC space.
+    // IST-shifted means we add IST_OFFSET so the chart shows 09:15 instead of 03:45.
+    // Valid window: 09:15–15:30 IST = 09:15–15:30 in shifted UTC space.
     const timestamps = [];
-    let ts = Math.floor(Date.now() / 1000);
-    ts -= ts % intervalSec; // align
-    
+    // Start from the last closed candle going backwards.
+    let ts = Math.floor(Date.now() / 1000) + IST_OFFSET;
+    ts -= ts % intervalSec; // floor-align to interval boundary
+
     while (timestamps.length < n) {
       const d = new Date(ts * 1000);
       const day = d.getUTCDay();
-      const h = d.getUTCHours();
-      const m = d.getUTCMinutes();
-      const timeInMin = h * 60 + m;
-      
-      // Indian market hours in UTC: 03:45 (9:15 IST) to 10:00 (15:30 IST)
-      // For daily interval, just skip weekends
+      const h   = d.getUTCHours();
+      const m   = d.getUTCMinutes();
+      const min = h * 60 + m;
       if (intervalSec >= 86400) {
+        // Daily: just skip weekends
         if (day !== 0 && day !== 6) timestamps.unshift(ts);
       } else {
-        if (day !== 0 && day !== 6 && timeInMin >= 225 && timeInMin <= 600) {
+        // Intraday: IST-shifted 09:15–15:30 = 555–930 in shifted UTC mins
+        if (day !== 0 && day !== 6 && min >= 555 && min <= 930)
           timestamps.unshift(ts);
-        }
       }
       ts -= intervalSec;
     }
-    
+
     for (let i = 0; i < n; i++) {
       const drift = (closePrice - p) * 0.02;
-      const vol = closePrice * 0.014;
+      const vol   = closePrice * 0.014;
       const o = p;
       const c = Math.max(1, p + drift + (rng() - 0.5) * vol * 2);
       const h = Math.max(o, c) + rng() * vol;
       const l = Math.min(o, c) - rng() * vol;
       const volume = Math.floor(rng() * 1e6 + 1e5);
-      out.push({
-        time: timestamps[i],
-        open: +o.toFixed(2), high: +h.toFixed(2), low: +l.toFixed(2), close: +c.toFixed(2),
-        volume
-      });
+      out.push({ time: timestamps[i], open: +o.toFixed(2), high: +h.toFixed(2), low: +l.toFixed(2), close: +c.toFixed(2), volume });
       p = c;
     }
     out[out.length - 1].close = closePrice;
@@ -256,10 +255,12 @@
       })).filter(c => c.close != null);
       state.candles[key] = out;
 
-      // --- Populate quotes from chart meta (avoids rate-limited quote endpoint) ---
+      // Use the last valid candle close as LTP - more accurate than meta.regularMarketPrice
+      // which sometimes lags or rounds differently.
+      const lastClose = out.length ? out[out.length - 1].close : null;
       const m = r.meta;
-      if (m && typeof m.regularMarketPrice === 'number') {
-        const ltp = m.regularMarketPrice;
+      if (m && (lastClose != null || typeof m.regularMarketPrice === 'number')) {
+        const ltp = lastClose ?? m.regularMarketPrice;
         const prevClose = m.chartPreviousClose ?? m.previousClose ?? ltp;
         const existing = state.quotes[sym] || {};
         state.quotes[sym] = {
@@ -281,9 +282,22 @@
     // Fallback: synthesise. Choose interval seconds by interval string.
     const intervalSec = ({ '1m': 60, '5m': 300, '15m': 900, '30m': 1800, '60m': 3600, '1d': 86400 })[interval] || 86400;
     const n = ({ '1d': 78, '5d': 78 * 5, '1mo': 22, '3mo': 66, '6mo': 132, '1y': 252 })[range] || 90;
-    const fb = TL.STATIC.fallback[sym] || { close: 100 };
+    const fb = TL.STATIC.fallback[sym] || { close: 100, prevClose: 100 };
     const out = synthesiseSeries(fb.close, n, intervalSec);
     state.candles[key] = out;
+    // Populate quotes from fallback so watchlist/panel shows something sensible.
+    if (!state.quotes[sym] || !state.quotes[sym].live) {
+      const ltp = fb.close;
+      const prevClose = fb.prevClose ?? ltp;
+      state.quotes[sym] = {
+        ltp, prevClose,
+        change: ltp - prevClose,
+        pct: ((ltp - prevClose) / prevClose) * 100,
+        dayHigh: ltp, dayLow: ltp * 0.99, open: prevClose,
+        ts: Date.now(), live: false
+      };
+      bus.emit('quotes', [sym]);
+    }
     return out;
   };
 
