@@ -1498,3 +1498,68 @@ body {
   font-size: 10px; color: transparent;
 }
 .task-label { font-size: 13px; color: var(--text); }
+
+/* Popover & Notifications */
+.popover {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  width: 320px;
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  border: 1px solid var(--border-light);
+  border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+  z-index: 9999;
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.popover.hidden {
+  display: none;
+}
+.pop-head {
+  padding: 12px 16px;
+  font-weight: 600;
+  border-bottom: 1px solid var(--border-light);
+  background: rgba(255,255,255,0.02);
+}
+.notif-list {
+  max-height: 350px;
+  overflow-y: auto;
+}
+.notif-row {
+  display: flex;
+  gap: 12px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border-light);
+  transition: background 0.2s;
+}
+.notif-row:hover {
+  background: rgba(255,255,255,0.03);
+}
+.notif-row:last-child {
+  border-bottom: none;
+}
+.notif-row .dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--primary);
+  margin-top: 6px;
+  flex-shrink: 0;
+}
+.notif-row.kind-sys .dot { background: var(--accent); }
+.notif-row.kind-trade .dot { background: var(--up); }
+.notif-msg {
+  font-size: 0.9rem;
+  line-height: 1.4;
+  color: var(--text);
+}
+.notif-time {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-top: 4px;
+}

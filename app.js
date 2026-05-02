@@ -124,7 +124,31 @@
     const out = [];
     let s = closePrice * 13.37;
     const rng = () => { s = (s * 9301 + 49297) % 233280; return s / 233280; };
-    const start = Math.floor(Date.now() / 1000) - n * intervalSec;
+    
+    // Generate valid market timestamps (IST: UTC+5:30 -> 03:45 to 10:00 UTC)
+    const timestamps = [];
+    let ts = Math.floor(Date.now() / 1000);
+    ts -= ts % intervalSec; // align
+    
+    while (timestamps.length < n) {
+      const d = new Date(ts * 1000);
+      const day = d.getUTCDay();
+      const h = d.getUTCHours();
+      const m = d.getUTCMinutes();
+      const timeInMin = h * 60 + m;
+      
+      // Indian market hours in UTC: 03:45 (9:15 IST) to 10:00 (15:30 IST)
+      // For daily interval, just skip weekends
+      if (intervalSec >= 86400) {
+        if (day !== 0 && day !== 6) timestamps.unshift(ts);
+      } else {
+        if (day !== 0 && day !== 6 && timeInMin >= 225 && timeInMin <= 600) {
+          timestamps.unshift(ts);
+        }
+      }
+      ts -= intervalSec;
+    }
+    
     for (let i = 0; i < n; i++) {
       const drift = (closePrice - p) * 0.02;
       const vol = closePrice * 0.014;
@@ -134,7 +158,7 @@
       const l = Math.min(o, c) - rng() * vol;
       const volume = Math.floor(rng() * 1e6 + 1e5);
       out.push({
-        time: start + i * intervalSec,
+        time: timestamps[i],
         open: +o.toFixed(2), high: +h.toFixed(2), low: +l.toFixed(2), close: +c.toFixed(2),
         volume
       });
