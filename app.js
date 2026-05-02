@@ -92,7 +92,7 @@
   // ───────────────────────── Live data layer ─────────────────────────
   const Q1 = 'https://query1.finance.yahoo.com';
   const PROXIES = [
-    u => 'https://corsproxy.io/?' + encodeURIComponent(u),
+    u => 'https://api.codetabs.com/v1/proxy?quest=' + encodeURIComponent(u),
     u => 'https://api.allorigins.win/raw?url=' + encodeURIComponent(u),
   ];
 
