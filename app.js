@@ -89,6 +89,23 @@
 
   const bySym = Object.fromEntries(TL.STATIC.stocks.map(s => [s.sym, s]));
 
+  // Normalize strategies — backfill fields some legacy code paths still expect.
+  TL.STATIC.strategies.forEach(s => {
+    if (s.type == null)        s.type        = (s.kind && s.kind[0]) || 'Technical';
+    if (s.signal == null)      s.signal      = s.stats && s.stats.pl >= 5 ? 'BUY' : (s.stats && s.stats.pl < 0 ? 'SELL' : 'HOLD');
+    if (s.successRate == null) s.successRate = (s.stats && s.stats.winRate) || 50;
+    if (s.riskLevel == null) {
+      const dd = Math.abs((s.stats && s.stats.dd) || 0);
+      s.riskLevel = dd < 5 ? 'Low' : dd < 10 ? 'Medium' : 'High';
+    }
+    if (s.analystNote == null) s.analystNote = `${s.name}: ${s.blurb}`;
+    if (!Array.isArray(s.triggers)) s.triggers = [];
+    s.triggers.forEach(t => {
+      if (t.type == null) t.type = t.kind === 'fund' ? 'Fundamental' : 'Technical';
+      if (t.met  == null) t.met  = false; // computed live by evaluateStrategy()
+    });
+  });
+
   // ───────────────────────── Live data layer ─────────────────────────
   const Q1 = ''; // The proxy handles the domain
   const PROXIES = [
@@ -1120,9 +1137,10 @@
     root.onclick = (e) => {
       const b = e.target.closest('button'); if (!b) return;
       if (b.dataset.act === 'open') {
-        const newbieTasks = JSON.parse(localStorage.getItem('tl_newbie') || '{"dashboard":true, "strategy":false, "community":false}');
-        newbieTasks.strategy = true; localStorage.setItem('tl_newbie', JSON.stringify(newbieTasks));
-        openStrategyOverlay(b.dataset.id);
+        // Pick a representative symbol: the first watchlist non-index, or HDFCBANK.
+        const target = state.watchlist.find(s => bySym[s] && bySym[s].sector !== 'Index') || 'HDFCBANK';
+        markNewbie('task-strategy');
+        openStrategyDetail(b.dataset.id, target);
       }
     };
   };
@@ -1476,6 +1494,348 @@
     }
   };
 
+  // ───────────────────────── Signal engine ─────────────────────────
+  // Builds a context object describing current state of a stock vs the
+  // strategy's triggers. Returns { signal, confidence, label, triggers[] }.
+  const signalCtx = async (sym) => {
+    const meta = bySym[sym]; if (!meta) return null;
+    const q = state.quotes[sym] || {};
+    const fb = TL.STATIC.fallback[sym] || {};
+    const ltp = q.ltp ?? fb.close ?? 0;
+    const candles = await fetchCandles(sym, '6mo', '1d').catch(() => []);
+    const closes = candles.map(c => c.close);
+    const lastIdx = closes.length - 1;
+    const sma50  = ind.sma(closes, 50);
+    const sma200 = ind.sma(closes, 200);
+    const rsiArr = ind.rsi(closes, 14);
+    const macdRes = ind.macd(closes, 12, 26, 9);
+    const bb = ind.bollinger(closes, 20, 2);
+    const atrPct = closes.length >= 14 ? (function () {
+      let s = 0, n = 0;
+      for (let i = Math.max(1, closes.length - 14); i < closes.length; i++) {
+        const tr = Math.max(
+          candles[i].high - candles[i].low,
+          Math.abs(candles[i].high - candles[i - 1].close),
+          Math.abs(candles[i].low  - candles[i - 1].close)
+        );
+        s += tr; n++;
+      }
+      return n ? (s / n / ltp) * 100 : 0;
+    })() : null;
+    const f = TL.STATIC.fundamentals[sym] || null;
+    const industry = TL.STATIC.industryAvg[meta.sector] || null;
+    return {
+      sym, sector: meta.sector,
+      close: ltp, pct: q.pct ?? 0,
+      dayHigh: q.dayHigh ?? null, dayLow: q.dayLow ?? null,
+      sma50: sma50[lastIdx], sma200: sma200[lastIdx],
+      rsi: rsiArr[lastIdx],
+      macd: macdRes.macd[lastIdx], macdSignal: macdRes.signal[lastIdx], macdHist: macdRes.histogram[lastIdx],
+      bb: { upper: bb.upper[lastIdx], middle: bb.middle[lastIdx], lower: bb.lower[lastIdx] },
+      atrPct, f, industry
+    };
+  };
+
+  const evaluateStrategy = async (strategy, sym) => {
+    const c = await signalCtx(sym);
+    if (!c) return { signal: 'HOLD', confidence: 0, triggers: [] };
+    const checks = (strategy.triggers || []).map(t => ({
+      label: t.label, kind: t.kind, met: !!safeRun(() => t.test(c))
+    }));
+    const total = checks.length || 1;
+    const hits = checks.filter(c => c.met).length;
+    const confidence = Math.round((hits / total) * 100);
+    let signal = 'HOLD';
+    if (confidence >= 65) signal = 'BUY';
+    else if (confidence <= 25) signal = 'SELL';
+    return { signal, confidence, triggers: checks, ctx: c };
+  };
+  const safeRun = (fn) => { try { return fn(); } catch (e) { return false; } };
+
+  // Strongest matching strategy for a symbol — used when the user opens a
+  // detail view from a stock click rather than a strategy card.
+  const bestStrategyFor = async (sym) => {
+    let best = null;
+    for (const s of TL.STATIC.strategies) {
+      const r = await evaluateStrategy(s, sym);
+      if (!best || r.confidence > best.r.confidence) best = { s, r };
+    }
+    return best;
+  };
+
+  // ───────────────────────── Strategy Detail View ─────────────────────────
+  let tvWidget = null;
+  const COMMENTS_KEY = 'tradelab.comments';
+  const NOTES_KEY    = 'tradelab.notes';
+  const NEWBIE_KEY   = 'tradelab.newbie';
+
+  const loadComments = () => { try { return JSON.parse(localStorage.getItem(COMMENTS_KEY) || '{}'); } catch (e) { return {}; } };
+  const saveComments = (m) => { try { localStorage.setItem(COMMENTS_KEY, JSON.stringify(m)); } catch (e) {} };
+  const loadNotes    = () => { try { return JSON.parse(localStorage.getItem(NOTES_KEY)    || '{}'); } catch (e) { return {}; } };
+  const saveNotes    = (m) => { try { localStorage.setItem(NOTES_KEY,    JSON.stringify(m)); } catch (e) {} };
+  const loadNewbie   = () => { try { return JSON.parse(localStorage.getItem(NEWBIE_KEY)   || '{}'); } catch (e) { return {}; } };
+  const saveNewbie   = (m) => { try { localStorage.setItem(NEWBIE_KEY,   JSON.stringify(m)); } catch (e) {} };
+  const markNewbie = (id) => {
+    const n = loadNewbie(); if (n[id]) return;
+    n[id] = Date.now(); saveNewbie(n);
+    bus.emit('newbie');
+  };
+
+  const renderTvWidget = (sym) => {
+    const meta = bySym[sym] || {};
+    const tvSym = meta.tv || ('NSE:' + sym.replace('-', '_').replace('&', ''));
+    const container = document.getElementById('sd-tv-widget');
+    if (!container) return;
+    container.innerHTML = '';
+    if (!window.TradingView) {
+      $('.sd-tv-fallback').textContent = 'TradingView script blocked. Showing fallback.';
+      return;
+    }
+    try {
+      tvWidget = new TradingView.widget({
+        width: '100%', height: 460,
+        symbol: tvSym, interval: 'D',
+        timezone: 'Asia/Kolkata',
+        theme: 'dark', style: '1', locale: 'in',
+        toolbar_bg: 'rgba(255,255,255,0.02)',
+        enable_publishing: false, allow_symbol_change: true,
+        container_id: 'sd-tv-widget',
+        studies: ['BB@tv-basicstudies', 'MASimple@tv-basicstudies'],
+        hide_side_toolbar: false
+      });
+    } catch (e) {
+      console.error('[TradeLab] TradingView widget failed:', e);
+    }
+  };
+
+  const renderSignalCard = (result) => {
+    const { signal, confidence, triggers } = result;
+    $('#sd-signal-text').textContent = signal;
+    const tone = signal === 'BUY' ? 'pos' : signal === 'SELL' ? 'neg' : 'warn';
+    $('#sd-signal-text').className = `sd-signal-${tone}`;
+    $('#sd-signal-arrow').setAttribute('class', `sd-arrow signal-${tone}`);
+    if (signal === 'SELL') $('#sd-signal-arrow').style.transform = 'rotate(90deg)';
+    else if (signal === 'HOLD') $('#sd-signal-arrow').style.transform = 'rotate(45deg)';
+    else $('#sd-signal-arrow').style.transform = 'rotate(0deg)';
+
+    // Gauge: 157 ≈ arc length for a 100-radius semicircle path used here.
+    const arcLen = 157;
+    const offset = arcLen - (arcLen * confidence) / 100;
+    const arc = $('#sd-gauge-arc');
+    arc.setAttribute('stroke-dashoffset', offset);
+    arc.setAttribute('stroke', signal === 'BUY' ? '#10b981' : signal === 'SELL' ? '#ef4444' : '#f59e0b');
+    $('#sd-gauge-pct').textContent = confidence + '%';
+
+    $('#sd-triggers').innerHTML = triggers.map(t => `
+      <li class="sd-trigger ${t.met ? 'met' : 'unmet'}">
+        <span class="sd-tcheck">${t.met ? '✓' : '○'}</span>
+        <span class="sd-tlabel"><b>${t.kind === 'fund' ? 'Fundamental' : 'Technical'}:</b> ${t.label}</span>
+      </li>`).join('') || '<li class="muted small">No triggers defined for this strategy.</li>';
+  };
+
+  const renderFundComparison = (ctx) => {
+    if (!ctx) return;
+    $('#sd-fund-symhead').textContent = ctx.sym;
+    const f = ctx.f, indv = ctx.industry;
+    if (!f || !indv) {
+      $('#sd-fund-tbody').innerHTML = `<tr><td colspan="3" class="empty-cell">No fundamentals available for ${ctx.sym}.</td></tr>`;
+      return;
+    }
+    const rows = [
+      { metric: 'P/E Ratio',      a: f.pe,      b: indv.pe,      lowerBetter: true,  fmt: v => v ? v.toFixed(1) : '—' },
+      { metric: 'P/B Ratio',      a: f.pb,      b: indv.pb,      lowerBetter: true,  fmt: v => v ? v.toFixed(1) : '—' },
+      { metric: 'Debt-to-Equity', a: f.de,      b: indv.de,      lowerBetter: true,  fmt: v => (v != null ? v.toFixed(1) : '—') },
+      { metric: 'ROE %',          a: f.roe,     b: indv.roe,     lowerBetter: false, fmt: v => v != null ? v.toFixed(1) : '—' },
+      { metric: 'Dividend Yield', a: f.divYield,b: indv.divYield,lowerBetter: false, fmt: v => v != null ? v.toFixed(1) + '%' : '—' },
+    ];
+    $('#sd-fund-tbody').innerHTML = rows.map(r => {
+      const better = r.lowerBetter ? r.a < r.b : r.a > r.b;
+      const cls = (r.a == null || r.b == null) ? '' : (better ? 'pos' : 'neg');
+      return `<tr><td>${r.metric}</td><td class="num mono ${cls}">${r.fmt(r.a)}</td><td class="num mono">${r.fmt(r.b)}</td></tr>`;
+    }).join('');
+  };
+
+  const renderAnalystNote = (sym) => {
+    const note = TL.STATIC.analystNotes[sym] || TL.STATIC.defaultAnalystNote(sym);
+    $('#sd-analyst').textContent = note;
+  };
+
+  const renderComments = (sym) => {
+    const all = loadComments();
+    const seedC = TL.STATIC.communitySeed[sym] || [];
+    const userC = all[sym] || [];
+    const combined = [...seedC, ...userC].sort((a, b) => a.ts - b.ts);
+    const root = $('#sd-comments');
+    root.innerHTML = combined.map(c => `
+      <div class="sd-comment">
+        <div class="sd-comment-avatar">${(c.user || 'U')[0].toUpperCase()}</div>
+        <div class="sd-comment-body">
+          <div class="sd-comment-meta"><b>${c.user || 'You'}</b><span class="muted small">${fmt.rel(c.ts)}</span></div>
+          <div class="sd-comment-text">${c.msg}</div>
+        </div>
+      </div>`).join('') || '<div class="muted small">No comments yet — be the first.</div>';
+    root.scrollTop = root.scrollHeight;
+  };
+
+  const renderNotes = (sym) => {
+    const all = loadNotes();
+    const ta = $('#sd-notes');
+    ta.value = all[sym] || '';
+    ta.oninput = () => { all[sym] = ta.value; saveNotes(all); };
+  };
+
+  const initSdOrderBar = (sym) => {
+    const meta = bySym[sym] || {};
+    const q = state.quotes[sym] || {};
+    const ltp = q.ltp ?? TL.STATIC.fallback[sym]?.close ?? 0;
+    $('#sd-order-price').value = (+ltp).toFixed(2);
+    if (!$('#sd-order-qty').value) $('#sd-order-qty').value = 100;
+    $$('.sd-qty-btn').forEach(b => b.onclick = () => {
+      const inp = $('#sd-order-qty');
+      const cur = +inp.value || 0;
+      inp.value = b.dataset.act === 'inc' ? cur + 1 : Math.max(1, cur - 1);
+    });
+    $('#sd-place-order').onclick = () => {
+      const qty = +$('#sd-order-qty').value || 0;
+      const type = $('#sd-order-type').value;
+      const px = type === 'MARKET' ? ltp : (+$('#sd-order-price').value || ltp);
+      if (qty <= 0) return toast('Enter quantity', 'err');
+      const order = {
+        id: 'TL-' + (1100 + state.orders.length + 1),
+        sym, side: 'BUY', qty, price: +(+px).toFixed(2), type,
+        status: type === 'MARKET' ? 'EXECUTED' : 'OPEN',
+        env: state.env, ts: Date.now()
+      };
+      state.orders.unshift(order);
+      if (order.status === 'EXECUTED') Order.applyFill(order);
+      pushNotification({ kind: 'fill', msg: `${sym} BUY ${qty} @ ${fmt.inr(px)} ${order.status === 'EXECUTED' ? 'filled' : 'placed'} in ${state.env}.` });
+      persist();
+      toast(`Order ${order.status === 'EXECUTED' ? 'filled' : 'placed'}: ${sym} BUY ${qty}`, 'ok');
+      bus.emit('orders'); bus.emit('holdings'); bus.emit('funds');
+      markNewbie('firstOrder');
+      markNewbie('task-strategy');
+    };
+  };
+
+  const initSdCommentForm = (sym) => {
+    const inp = $('#sd-comment-input'), btn = $('#sd-comment-post');
+    const post = () => {
+      const msg = inp.value.trim();
+      if (!msg) return;
+      const all = loadComments();
+      (all[sym] = all[sym] || []).push({ user: 'You', ts: Date.now(), msg });
+      saveComments(all);
+      inp.value = '';
+      renderComments(sym);
+      markNewbie('task-community');
+    };
+    btn.onclick = post;
+    inp.onkeydown = (e) => { if (e.key === 'Enter') { e.preventDefault(); post(); } };
+    $$('.sd-comm-tab').forEach(b => b.onclick = () => {
+      $$('.sd-comm-tab').forEach(x => x.classList.toggle('active', x === b));
+      $('#sd-comm-discussion').classList.toggle('hidden', b.dataset.comm !== 'discussion');
+      $('#sd-comm-notes').classList.toggle('hidden', b.dataset.comm !== 'notes');
+    });
+  };
+
+  const openStrategyDetail = async (strategyId, sym) => {
+    let strategy = strategyId ? TL.STATIC.strategies.find(s => s.id === strategyId) : null;
+    if (!strategy) {
+      const best = await bestStrategyFor(sym);
+      strategy = best ? best.s : TL.STATIC.strategies[0];
+    }
+    state.selected = sym;
+    persist();
+    Router.go('tab-strategy-detail');
+    const meta = bySym[sym] || { name: sym };
+    $('#sd-name').textContent = meta.name;
+    $('#sd-strategy-tag').textContent = `${strategy.name} · ${strategy.tag} · ${meta.sector}`;
+    $('#sd-breadcrumb').textContent = `Strategies › ${strategy.name} › ${sym}`;
+    refreshQuotes([sym]).then(() => {
+      const q = state.quotes[sym] || {};
+      const ltp = q.ltp ?? TL.STATIC.fallback[sym]?.close ?? 0;
+      $('#sd-ltp').textContent = fmt.inr(ltp);
+      $('#sd-pct').textContent = fmt.pct(q.pct ?? 0);
+      $('#sd-pct').className = 'chart-pct ' + ((q.pct ?? 0) >= 0 ? 'pos' : 'neg');
+      initSdOrderBar(sym);
+    });
+    evaluateStrategy(strategy, sym).then(result => {
+      renderSignalCard(result);
+      renderFundComparison(result.ctx);
+    });
+    renderAnalystNote(sym);
+    renderComments(sym);
+    renderNotes(sym);
+    initSdCommentForm(sym);
+    renderTvWidget(sym);
+    Watchlist.render();
+    markNewbie('detail');
+    markNewbie('task-strategy');
+  };
+
+  Views['tab-strategy-detail'] = () => {
+    if (!$('#sd-tv-widget').firstChild) {
+      openStrategyDetail(null, state.selected);
+    }
+  };
+
+  // ───────────────────────── Spotlight (top-3 highest confidence) ─────────────────────────
+  const renderSpotlight = async () => {
+    const root = $('#spotlight-container');
+    if (!root) return;
+    const candidates = ['HDFCBANK','RELIANCE','TCS','INFY','ICICIBANK','TATAMOTORS','BAJFINANCE','LT','BHARTIARTL','ITC'];
+    const results = [];
+    for (const sym of candidates) {
+      const best = await bestStrategyFor(sym);
+      if (best) results.push({ sym, ...best });
+    }
+    results.sort((a, b) => b.r.confidence - a.r.confidence);
+    const top = results.slice(0, 3);
+    root.innerHTML = top.map(({ sym, s, r }) => {
+      const meta = bySym[sym] || {};
+      const tone = r.signal === 'BUY' ? 'pos' : r.signal === 'SELL' ? 'neg' : 'warn';
+      return `
+        <div class="spotlight-card" data-sym="${sym}" data-strat="${s.id}">
+          <div class="spotlight-head">
+            <div>
+              <div class="spotlight-name">${meta.name || sym}</div>
+              <div class="muted small">${s.name}</div>
+            </div>
+            <span class="spotlight-signal sig-${tone}">${r.signal}</span>
+          </div>
+          <div class="spotlight-bar">
+            <div class="spotlight-bar-fill sig-${tone}" style="width:${r.confidence}%"></div>
+          </div>
+          <div class="spotlight-foot">
+            <span class="muted small">Confidence</span>
+            <b>${r.confidence}%</b>
+          </div>
+        </div>`;
+    }).join('') || '<div class="empty">Loading signals…</div>';
+    $$('.spotlight-card').forEach(card => {
+      card.onclick = () => openStrategyDetail(card.dataset.strat, card.dataset.sym);
+    });
+  };
+
+  // ───────────────────────── Newbie Path ─────────────────────────
+  const renderNewbie = () => {
+    const root = $('#newbie-path-container');
+    if (!root) return;
+    const done = loadNewbie();
+    const ids = ['task-dashboard', 'task-strategy', 'task-community'];
+    let count = 0;
+    ids.forEach(id => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      const isDone = !!done[id];
+      el.classList.toggle('completed', isDone);
+      if (isDone) count++;
+    });
+    const txt = $('#newbie-prog-text'); if (txt) txt.textContent = String(count);
+    if (count >= ids.length) root.classList.add('all-done');
+    else root.classList.remove('all-done');
+  };
+
   // ───────────────────────── Order drawer plumbing ─────────────────────────
   const initOrderDrawer = () => {
     $('#od-close').addEventListener('click', () => Order.close());
@@ -1563,6 +1923,7 @@
     bus.on('orders',   () => { if (state.activeTab === 'tab-orders')   safe('orders view',   () => Views['tab-orders']()); });
     bus.on('holdings', () => { if (state.activeTab === 'tab-holdings') safe('holdings view', () => Views['tab-holdings']()); });
     bus.on('funds',    () => { if (state.activeTab === 'tab-funds')    safe('funds view',    () => Views['tab-funds']()); });
+    bus.on('newbie',   () => safe('newbie',   () => renderNewbie()));
     bus.on('quotes',   () => {
       if (state.activeTab === 'tab-dashboard') safe('dashboard view', () => Views['tab-dashboard']());
       if (state.activeTab === 'tab-holdings')  safe('holdings view',  () => Views['tab-holdings']());
@@ -1574,18 +1935,20 @@
     catch (e) { console.error('[TradeLab] prime quotes failed:', e); }
     safe('quickPanel', () => renderQuickPanel());
     safe('polling',    () => startPolling());
+    safe('newbie',     () => { markNewbie('task-dashboard'); renderNewbie(); });
+    safe('spotlight',  () => renderSpotlight());
 
     const fn = Views[state.activeTab];
     if (fn) safe('initial view', () => fn());
     console.log('[TradeLab] booted on', state.activeTab);
   };
 
-  window.addEventListener('error',            (e) => showFatal(e.error || e.message));
+  window.addEventListener('error',              (e) => showFatal(e.error || e.message));
   window.addEventListener('unhandledrejection', (e) => showFatal(e.reason));
 
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', boot);
   } else { boot(); }
 
-  window.TL.app = { state, bus, refreshQuotes, fetchCandles, Order, Router, Env, ind, patterns };
+  window.TL.app = { state, bus, refreshQuotes, fetchCandles, Order, Router, Env, ind, patterns, openStrategyDetail, evaluateStrategy, signalCtx };
 })();
