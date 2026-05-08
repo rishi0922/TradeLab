@@ -1909,9 +1909,57 @@
     catch (e) { console.error(`[TradeLab] ${label} failed:`, e); showFatal(`${label}: ${e.message}`); }
   };
 
+  // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ Mobile Menu â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  const MobileMenu = {
+    init() {
+      const menuBtn = #menu-toggle;
+      const closeBtn = #menu-close;
+      const backdrop = #menu-backdrop;
+      const drawer = #mobile-menu;
+
+      if (!menuBtn || !drawer) return;
+
+      const toggle = (force) => {
+        const isOpen = force !== undefined ? force : drawer.classList.contains('open');
+        drawer.classList.toggle('open', !isOpen);
+        backdrop.classList.toggle('active', !isOpen);
+        if (drawer.classList.contains('open')) this.renderWatchlist();
+      };
+
+      menuBtn.addEventListener('click', () => toggle(false));
+      closeBtn.addEventListener('click', () => toggle(true));
+      backdrop.addEventListener('click', () => toggle(true));
+
+      drawer.addEventListener('click', (e) => {
+        if (e.target.closest('.tab-link')) toggle(true);
+      });
+    },
+    renderWatchlist() {
+      const container = #mobile-watchlist-container;
+      const original = #watchlist;
+      if (!container || !original) return;
+      container.innerHTML = original.innerHTML;
+      const qlContainer = #mobile-quicklook-container;
+      const qlOriginal = #quick-panel;
+      if (qlContainer && qlOriginal) qlContainer.innerHTML = qlOriginal.innerHTML;
+      container.onclick = (e) => {
+        const target = e.target;
+        const btn = target.closest('button');
+        const row = target.closest('.wl-row');
+        if (btn) {
+           const originalBtn = original.querySelector("button[data-sym='" + btn.dataset.sym + "'][data-act='" + btn.dataset.act + "']");
+           if (originalBtn) originalBtn.click();
+        } else if (row) {
+           const originalRow = original.querySelector(".wl-row[data-sym='" + row.dataset.sym + "']");
+           if (originalRow) originalRow.click();
+        }
+      };
+    }
+  };
   const boot = async () => {
     console.log('[TradeLab] booting…');
     safe('Env',           () => Env.apply());
+    safe('MobileMenu',    () => MobileMenu.init());
     safe('Router',        () => Router.init());
     safe('Watchlist',     () => { Watchlist.init(); Watchlist.render(); });
     safe('Search',        () => Search.init());

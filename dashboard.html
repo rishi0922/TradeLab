@@ -14,13 +14,21 @@
 
   <!-- ═══════════════════════ Top Bar ═══════════════════════ -->
   <header class="topbar">
+    <button id="menu-toggle" class="menu-toggle" aria-label="Menu">
+      <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2">
+        <line x1="3" y1="12" x2="21" y2="12"></line>
+        <line x1="3" y1="6" x2="21" y2="6"></line>
+        <line x1="3" y1="18" x2="21" y2="18"></line>
+      </svg>
+    </button>
+
     <a href="index.html" class="brand">
       <span class="brand-mark"></span>
       <span class="brand-text">TradeLab</span>
       <span class="brand-tag">Workspace</span>
     </a>
 
-    <nav class="tabs">
+    <nav class="tabs desktop-only">
       <a href="#" class="tab-link" data-tab="tab-dashboard">Dashboard</a>
       <a href="#" class="tab-link" data-tab="tab-orders">Orders</a>
       <a href="#" class="tab-link" data-tab="tab-holdings">Holdings</a>
@@ -52,6 +60,41 @@
       <div class="avatar" title="Rishi">R</div>
     </div>
   </header>
+  
+  <!-- Mobile Menu Drawer -->
+  <div id="menu-backdrop" class="menu-backdrop"></div>
+  <aside id="mobile-menu" class="mobile-menu">
+    <div class="menu-head">
+      <div class="brand">
+        <span class="brand-mark"></span>
+        <span class="brand-text">TradeLab</span>
+      </div>
+      <button id="menu-close" class="icon-btn">×</button>
+    </div>
+    
+    <div class="menu-section">
+      <div class="menu-label">Navigation</div>
+      <nav class="mobile-tabs">
+        <a href="#" class="tab-link" data-tab="tab-dashboard">Dashboard</a>
+        <a href="#" class="tab-link" data-tab="tab-orders">Orders</a>
+        <a href="#" class="tab-link" data-tab="tab-holdings">Holdings</a>
+        <a href="#" class="tab-link" data-tab="tab-positions">Positions</a>
+        <a href="#" class="tab-link" data-tab="tab-funds">Funds</a>
+        <a href="#" class="tab-link" data-tab="tab-strategies">Strategies</a>
+        <a href="#" class="tab-link" data-tab="tab-explore">Explore</a>
+        <a href="#" class="tab-link" data-tab="tab-charts">Charts</a>
+      </nav>
+    </div>
+
+    <div class="menu-section">
+      <div class="menu-label">Market</div>
+      <div id="mobile-quicklook-container" style="margin-bottom: 20px;">
+        <!-- Quick Look will be cloned here -->
+      </div>      <div id="mobile-watchlist-container">
+        <!-- Watchlist items will be cloned here or shown here -->
+      </div>
+    </div>
+  </aside>
 
   <!-- ═══════════════════════ Layout ═══════════════════════ -->
   <main class="layout">
