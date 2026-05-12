@@ -702,7 +702,10 @@
     init() {
       const inp = $('#global-search');
       const dd  = $('#search-results');
-      const close = () => dd.classList.add('hidden');
+      const close = () => {
+        dd.classList.add('hidden');
+        dd.innerHTML = '';
+      };
       const open  = () => dd.classList.remove('hidden');
       const renderResults = () => {
         const list = searchSymbols(inp.value);
@@ -740,7 +743,12 @@
           close(); inp.blur();
         }
       });
-      document.addEventListener('click', (e) => { if (!e.target.closest('.search-wrap')) close(); });
+      document.addEventListener('click', (e) => { 
+        if (!e.target.closest('.search-wrap')) {
+          inp.value = '';
+          close(); 
+        }
+      });
       dd.addEventListener('click', (e) => {
         const btn = e.target.closest('button');
         if (btn) {
