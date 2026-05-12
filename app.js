@@ -973,22 +973,48 @@
       <div class="kpi"><span>Today</span><b class="${day >= 0 ? 'pos' : 'neg'}">${fmt.sign(day)}</b></div>
       <div class="kpi"><span>Cash</span><b>${fmt.inr(state.funds.cash)}</b></div>`;
 
-    $('#dash-news').innerHTML = TL.STATIC.news.map(n => `
-      <div class="news-row">
-        <div class="news-src">${n.src}</div>
-        <div class="news-title">${n.title}</div>
-        <div class="news-time">${fmt.rel(n.ts)}</div>
-      </div>`).join('');
+    const renderNews = (newsArray) => {
+      $('#dash-news').innerHTML = newsArray.map(n => `
+        <a href="${n.link || '#'}" target="_blank" class="news-row" style="text-decoration:none; color:inherit;">
+          <div class="news-src">${n.src}</div>
+          <div class="news-title">${n.title}</div>
+          <div class="news-time">${fmt.rel(n.ts)}</div>
+        </a>`).join('');
+    };
+
+    if (window.liveNews) {
+      renderNews(window.liveNews);
+    } else {
+      renderNews(TL.STATIC.news);
+      fetch('/api/yahoo?path=/v1/finance/search?q=indian+stock+market&newsCount=5')
+        .then(res => res.json())
+        .then(data => {
+          if (data && data.news && data.news.length) {
+            window.liveNews = data.news.map(n => ({
+              src: n.publisher || 'Yahoo Finance',
+              title: n.title,
+              ts: n.providerPublishTime * 1000,
+              link: n.link
+            }));
+            renderNews(window.liveNews);
+          }
+        }).catch(e => console.error('Failed to fetch live news', e));
+    }
 
     const pool = TL.STATIC.stocks.filter(s => s.sector !== 'Index')
-      .map(s => ({ ...s, q: state.quotes[s.sym] || {} }))
-      .filter(s => s.q.pct != null);
-    const gainers = [...pool].sort((a, b) => b.q.pct - a.q.pct).slice(0, 5);
-    const losers  = [...pool].sort((a, b) => a.q.pct - b.q.pct).slice(0, 5);
+      .map(s => {
+        const q = state.quotes[s.sym] || {};
+        const basePrice = q.open || q.prevClose;
+        const openPct = basePrice ? ((q.ltp - basePrice) / basePrice) * 100 : 0;
+        return { ...s, q, openPct };
+      })
+      .filter(s => s.q.ltp != null);
+    const gainers = [...pool].sort((a, b) => b.openPct - a.openPct).slice(0, 5);
+    const losers  = [...pool].sort((a, b) => a.openPct - b.openPct).slice(0, 5);
     const renderMover = s => `
       <div class="mover" data-sym="${s.sym}">
         <div><b>${s.sym}</b><span>${s.name}</span></div>
-        <div class="${s.q.pct >= 0 ? 'pos' : 'neg'}">${fmt.pct(s.q.pct)}</div>
+        <div class="${s.openPct >= 0 ? 'pos' : 'neg'}">${fmt.pct(s.openPct)}</div>
       </div>`;
     $('#dash-gainers').innerHTML = gainers.map(renderMover).join('') || '<div class="empty">Loading…</div>';
     $('#dash-losers').innerHTML  = losers.map(renderMover).join('')  || '<div class="empty">Loading…</div>';
