@@ -1912,10 +1912,10 @@
   // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ Mobile Menu â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const MobileMenu = {
     init() {
-      const menuBtn = #menu-toggle;
-      const closeBtn = #menu-close;
-      const backdrop = #menu-backdrop;
-      const drawer = #mobile-menu;
+      const menuBtn = $('#menu-toggle');
+      const closeBtn = $('#menu-close');
+      const backdrop = $('#menu-backdrop');
+      const drawer = $('#mobile-menu');
 
       if (!menuBtn || !drawer) return;
 
@@ -1935,12 +1935,12 @@
       });
     },
     renderWatchlist() {
-      const container = #mobile-watchlist-container;
-      const original = #watchlist;
+      const container = $('#mobile-watchlist-container');
+      const original = $('#watchlist');
       if (!container || !original) return;
       container.innerHTML = original.innerHTML;
-      const qlContainer = #mobile-quicklook-container;
-      const qlOriginal = #quick-panel;
+      const qlContainer = $('#mobile-quicklook-container');
+      const qlOriginal = $('#quick-panel');
       if (qlContainer && qlOriginal) qlContainer.innerHTML = qlOriginal.innerHTML;
       container.onclick = (e) => {
         const target = e.target;
