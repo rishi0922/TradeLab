@@ -2,10 +2,10 @@ window.STATIC_MARKET_DATA = {
   "ADANIENT": {
     "source": "Yahoo Finance",
     "fundamentals": {
-      "pe": "15.00",
-      "mcap": "0.1Cr",
-      "pb": "5.41",
-      "divYield": "0.00%"
+      "pe": "40.39",
+      "mcap": "407074.5Cr",
+      "pb": "4.74",
+      "divYield": "0.05%"
     },
     "earnings": {
       "yearly": [
@@ -72,7 +72,7 @@ window.STATIC_MARKET_DATA = {
           "revenue": 324393100000,
           "opCost": 227075170000,
           "opProfit": 97317930000,
-          "pat": 0,
+          "pat": -2207100000,
           "ebitda": 113537585000
         }
       ]
@@ -81,10 +81,10 @@ window.STATIC_MARKET_DATA = {
   "ADANIPORTS": {
     "source": "Yahoo Finance",
     "fundamentals": {
-      "pe": "15.00",
-      "mcap": "0.1Cr",
-      "pb": "5.40",
-      "divYield": "0.00%"
+      "pe": "31.10",
+      "mcap": "417293.1Cr",
+      "pb": "4.34",
+      "divYield": "0.42%"
     },
     "earnings": {
       "yearly": [
@@ -160,21 +160,13 @@ window.STATIC_MARKET_DATA = {
   "APOLLOHOSP": {
     "source": "Yahoo Finance",
     "fundamentals": {
-      "pe": "15.00",
-      "mcap": "0.1Cr",
-      "pb": "12.10",
-      "divYield": "0.00%"
+      "pe": "61.04",
+      "mcap": "118744.6Cr",
+      "pb": "12.52",
+      "divYield": "0.24%"
     },
     "earnings": {
       "yearly": [
-        {
-          "period": "FY 2022",
-          "revenue": 146626400000,
-          "opCost": 102638480000,
-          "opProfit": 43987920000,
-          "pat": 8499938330,
-          "ebitda": 51319240000
-        },
         {
           "period": "FY 2023",
           "revenue": 166124500000,
@@ -198,17 +190,17 @@ window.STATIC_MARKET_DATA = {
           "opProfit": 65382000000,
           "pat": 14459000000,
           "ebitda": 76279000000
+        },
+        {
+          "period": "FY 2026",
+          "revenue": 252285000000,
+          "opCost": 176599500000,
+          "opProfit": 75685500000,
+          "pat": 19561506900,
+          "ebitda": 88299750000
         }
       ],
       "quarterly": [
-        {
-          "period": "Q 1Q2025",
-          "revenue": 55922000000,
-          "opCost": 39145400000,
-          "opProfit": 16776600000,
-          "pat": 3896000000,
-          "ebitda": 19572700000
-        },
         {
           "period": "Q 2Q2025",
           "revenue": 58421000000,
@@ -232,6 +224,14 @@ window.STATIC_MARKET_DATA = {
           "opProfit": 19432200000,
           "pat": 5168351000,
           "ebitda": 22670900000
+        },
+        {
+          "period": "Q 1Q2026",
+          "revenue": 66055000000,
+          "opCost": 46238500000,
+          "opProfit": 19816500000,
+          "pat": 5293000000,
+          "ebitda": 23119250000
         }
       ]
     }
@@ -239,10 +239,10 @@ window.STATIC_MARKET_DATA = {
   "ASIANPAINT": {
     "source": "Yahoo Finance",
     "fundamentals": {
-      "pe": "15.00",
-      "mcap": "0.1Cr",
-      "pb": "11.99",
-      "divYield": "0.00%"
+      "pe": "65.96",
+      "mcap": "253753.1Cr",
+      "pb": "12.95",
+      "divYield": "0.94%"
     },
     "earnings": {
       "yearly": [
@@ -318,10 +318,10 @@ window.STATIC_MARKET_DATA = {
   "AXISBANK": {
     "source": "Yahoo Finance",
     "fundamentals": {
-      "pe": "15.00",
-      "mcap": "0.1Cr",
-      "pb": "1.84",
-      "divYield": "0.00%"
+      "pe": "15.39",
+      "mcap": "404031.0Cr",
+      "pb": "1.88",
+      "divYield": "0.08%"
     },
     "earnings": {
       "yearly": [
@@ -397,10 +397,10 @@ window.STATIC_MARKET_DATA = {
   "BAJFINANCE": {
     "source": "Yahoo Finance",
     "fundamentals": {
-      "pe": "15.00",
-      "mcap": "0.1Cr",
-      "pb": "5.12",
-      "divYield": "0.00%"
+      "pe": "30.48",
+      "mcap": "578386.9Cr",
+      "pb": "5.07",
+      "divYield": "0.57%"
     },
     "earnings": {
       "yearly": [
@@ -476,10 +476,10 @@ window.STATIC_MARKET_DATA = {
   "HDFCBANK": {
     "source": "Yahoo Finance",
     "fundamentals": {
-      "pe": "15.00",
-      "mcap": "0.1Cr",
-      "pb": "2.11",
-      "divYield": "0.00%"
+      "pe": "17.37",
+      "mcap": "1199212.0Cr",
+      "pb": "2.12",
+      "divYield": "1.65%"
     },
     "earnings": {
       "yearly": [
@@ -555,10 +555,10 @@ window.STATIC_MARKET_DATA = {
   "INFY": {
     "source": "Yahoo Finance",
     "fundamentals": {
-      "pe": "15.00",
-      "mcap": "0.1Cr",
-      "pb": "5.55",
-      "divYield": "0.00%"
+      "pe": "15.26",
+      "mcap": "472651.0Cr",
+      "pb": "5.02",
+      "divYield": "4.28%"
     },
     "earnings": {
       "yearly": [
@@ -634,10 +634,10 @@ window.STATIC_MARKET_DATA = {
   "RELIANCE": {
     "source": "Yahoo Finance",
     "fundamentals": {
-      "pe": "15.00",
-      "mcap": "0.1Cr",
-      "pb": "2.22",
-      "divYield": "0.00%"
+      "pe": "22.70",
+      "mcap": "1835409.2Cr",
+      "pb": "2.03",
+      "divYield": "0.40%"
     },
     "earnings": {
       "yearly": [
@@ -713,10 +713,10 @@ window.STATIC_MARKET_DATA = {
   "TCS": {
     "source": "Yahoo Finance",
     "fundamentals": {
-      "pe": "15.00",
-      "mcap": "0.1Cr",
-      "pb": "7.89",
-      "divYield": "0.00%"
+      "pe": "16.74",
+      "mcap": "823549.0Cr",
+      "pb": "7.26",
+      "divYield": "5.37%"
     },
     "earnings": {
       "yearly": [

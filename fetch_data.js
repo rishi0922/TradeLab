@@ -87,7 +87,7 @@ async function run() {
         try {
             // 1. Fetch Fundamentals via Yahoo Finance
             const quote = await yahooFinance.quoteSummary(sym, {
-                modules: ['defaultKeyStatistics', 'financialData', 'earnings']
+                modules: ['defaultKeyStatistics', 'financialData', 'earnings', 'summaryDetail']
             });
 
             let fundamentals = {};
