@@ -193,6 +193,30 @@
         </section>
       </div>
 
+      <!-- ▸ Watchlist (Mobile) ▸ -->
+      <div id="tab-watchlist" class="tab-pane hidden">
+        <div class="page-head">
+          <h1>Watchlist</h1>
+          <p class="muted">Monitor and trade your selected assets.</p>
+        </div>
+
+        <div class="mobile-search-section">
+          <div class="search-wrap mobile-search-wrap">
+            <input id="mobile-search" type="text" placeholder="Search NSE — try RELIANCE" autocomplete="new-password" spellcheck="false" />
+            <div id="mobile-search-results" class="search-results hidden"></div>
+          </div>
+        </div>
+
+        <section class="card mobile-watchlist-card">
+          <div id="mobile-watchlist" class="watchlist"></div>
+        </section>
+
+        <section class="card mobile-quicklook-card">
+          <div class="card-head"><h2>Quick Look</h2></div>
+          <div id="mobile-quick-panel" class="quick-panel"></div>
+        </section>
+      </div>
+
       <!-- ▸ Orders ▸ -->
       <div id="tab-orders" class="tab-pane hidden">
         <div class="page-head"><h1>Orders</h1></div>
@@ -212,6 +236,11 @@
       <!-- ▸ Holdings ▸ -->
       <div id="tab-holdings" class="tab-pane hidden">
         <div class="page-head"><h1>Holdings</h1></div>
+        
+        <div class="portfolio-tabs mobile-only">
+          <button class="port-tab-btn active" onclick="window.TL.app.Router.go('tab-holdings')">Holdings</button>
+          <button class="port-tab-btn" onclick="window.TL.app.Router.go('tab-positions')">Positions</button>
+        </div>
         <section class="card">
           <div id="holdings-summary" class="kpi-row"></div>
         </section>
@@ -231,6 +260,11 @@
       <!-- ▸ Positions ▸ -->
       <div id="tab-positions" class="tab-pane hidden">
         <div class="page-head"><h1>Positions</h1></div>
+        
+        <div class="portfolio-tabs mobile-only">
+          <button class="port-tab-btn" onclick="window.TL.app.Router.go('tab-holdings')">Holdings</button>
+          <button class="port-tab-btn active" onclick="window.TL.app.Router.go('tab-positions')">Positions</button>
+        </div>
         <section class="card">
           <table class="data-table">
             <thead>
@@ -406,7 +440,7 @@
 
         <!-- Sticky order bar -->
         <div class="sd-order-bar">
-          <div class="sd-order-fields">
+          <div class="sd-order-fields desktop-only">
             <label><span>Order Type</span>
               <select id="sd-order-type">
                 <option value="MARKET">Market</option>
@@ -422,7 +456,13 @@
             </label>
             <label><span>Price</span><input id="sd-order-price" type="number" step="0.05" /></label>
           </div>
-          <button id="sd-place-order" class="sd-place-btn">Place BUY</button>
+          <button id="sd-place-order" class="sd-place-btn desktop-only">Place BUY</button>
+
+          <!-- Mobile trade buttons -->
+          <div class="sd-mobile-order-actions mobile-only">
+            <button id="sd-mobile-buy" class="sd-mob-btn buy-btn">BUY</button>
+            <button id="sd-mobile-sell" class="sd-mob-btn sell-btn">SELL</button>
+          </div>
         </div>
       </div>
 
@@ -496,6 +536,7 @@
 
   <!-- ═══════════════════════ Order Drawer ═══════════════════════ -->
   <aside id="order-drawer" class="order-drawer hidden" data-side="BUY">
+    <div class="od-drag-handle mobile-only"></div>
     <div class="od-head">
       <div>
         <div id="od-symbol" class="od-sym">—</div>
@@ -546,6 +587,51 @@
       </div>
     </div>
   </div>
+
+  <!-- Mobile Bottom Nav -->
+  <nav class="mobile-bottom-nav">
+    <a href="#" class="nav-item" data-tab="tab-watchlist">
+      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="8" y1="6" x2="21" y2="6"></line>
+        <line x1="8" y1="12" x2="21" y2="12"></line>
+        <line x1="8" y1="18" x2="21" y2="18"></line>
+        <line x1="3" y1="6" x2="3.01" y2="6"></line>
+        <line x1="3" y1="12" x2="3.01" y2="12"></line>
+        <line x1="3" y1="18" x2="3.01" y2="18"></line>
+      </svg>
+      <span>Watchlist</span>
+    </a>
+    <a href="#" class="nav-item" data-tab="tab-dashboard">
+      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="3" y="3" width="7" height="9"></rect>
+        <rect x="14" y="3" width="7" height="5"></rect>
+        <rect x="14" y="12" width="7" height="9"></rect>
+        <rect x="3" y="16" width="7" height="5"></rect>
+      </svg>
+      <span>Dashboard</span>
+    </a>
+    <a href="#" class="nav-item" data-tab="tab-holdings">
+      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+      </svg>
+      <span>Portfolio</span>
+    </a>
+    <a href="#" class="nav-item" data-tab="tab-orders">
+      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="10"></circle>
+        <polyline points="12 6 12 12 16 14"></polyline>
+      </svg>
+      <span>Orders</span>
+    </a>
+    <a href="#" class="nav-item" id="mobile-more-btn">
+      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="3" y1="12" x2="21" y2="12"></line>
+        <line x1="3" y1="6" x2="21" y2="6"></line>
+        <line x1="3" y1="18" x2="21" y2="18"></line>
+      </svg>
+      <span>More</span>
+    </a>
+  </nav>
 
   <div id="toast-stack" class="toast-stack"></div>
 

@@ -642,53 +642,59 @@
   // ───────────────────────── Watchlist ─────────────────────────
   const Watchlist = {
     render() {
-      const root = $('#watchlist');
-      if (!root) return;
-      root.innerHTML = state.watchlist.map(sym => {
-        const meta = bySym[sym] || { name: sym };
-        const q = state.quotes[sym];
-        const ltp = q ? q.ltp : (TL.STATIC.fallback[sym]?.close ?? 0);
-        const pct = q ? q.pct : 0;
-        const cls = pct >= 0 ? 'pos' : 'neg';
-        return `
-          <div class="wl-row ${state.selected === sym ? 'selected' : ''}" data-sym="${sym}">
-            <div class="wl-meta">
-              <div class="wl-sym">${sym}</div>
-              <div class="wl-name">${meta.name}</div>
-            </div>
-            <div class="wl-right">
-              <div class="wl-ltp">${fmt.inr(ltp)}</div>
-              <div class="wl-pct ${cls}">${fmt.pct(pct)}</div>
-            </div>
-            <div class="wl-actions">
-              <button class="wl-btn buy"  data-act="buy"  data-sym="${sym}" title="Buy">B</button>
-              <button class="wl-btn sell" data-act="sell" data-sym="${sym}" title="Sell">S</button>
-              <button class="wl-btn x"    data-act="rm"   data-sym="${sym}" title="Remove">×</button>
-            </div>
-          </div>`;
-      }).join('') || '<div class="empty-watch">Search a symbol and add it to your watchlist.</div>';
+      const roots = [$('#watchlist'), $('#mobile-watchlist')].filter(Boolean);
+      roots.forEach(root => {
+        root.innerHTML = state.watchlist.map(sym => {
+          const meta = bySym[sym] || { name: sym };
+          const q = state.quotes[sym];
+          const ltp = q ? q.ltp : (TL.STATIC.fallback[sym]?.close ?? 0);
+          const pct = q ? q.pct : 0;
+          const cls = pct >= 0 ? 'pos' : 'neg';
+          return `
+            <div class="wl-row ${state.selected === sym ? 'selected' : ''}" data-sym="${sym}">
+              <div class="wl-meta">
+                <div class="wl-sym">${sym}</div>
+                <div class="wl-name">${meta.name}</div>
+              </div>
+              <div class="wl-right">
+                <div class="wl-ltp">${fmt.inr(ltp)}</div>
+                <div class="wl-pct ${cls}">${fmt.pct(pct)}</div>
+              </div>
+              <div class="wl-actions">
+                <button class="wl-btn buy"  data-act="buy"  data-sym="${sym}" title="Buy">B</button>
+                <button class="wl-btn sell" data-act="sell" data-sym="${sym}" title="Sell">S</button>
+                <button class="wl-btn x"    data-act="rm"   data-sym="${sym}" title="Remove">×</button>
+              </div>
+            </div>`;
+        }).join('') || '<div class="empty-watch">Search a symbol and add it to your watchlist.</div>';
+      });
     },
     init() {
-      $('#watchlist').addEventListener('click', (e) => {
-        const btn = e.target.closest('button');
-        const row = e.target.closest('.wl-row');
-        if (btn) {
-          const { act, sym } = btn.dataset;
-          if (act === 'buy')  return Order.open(sym, 'BUY');
-          if (act === 'sell') return Order.open(sym, 'SELL');
-          if (act === 'rm') {
-            state.watchlist = state.watchlist.filter(x => x !== sym);
-            persist(); Watchlist.render();
-            return;
+      const roots = [$('#watchlist'), $('#mobile-watchlist')].filter(Boolean);
+      roots.forEach(root => {
+        root.addEventListener('click', (e) => {
+          const btn = e.target.closest('button');
+          const row = e.target.closest('.wl-row');
+          if (btn) {
+            const { act, sym } = btn.dataset;
+            if (act === 'buy')  return Order.open(sym, 'BUY');
+            if (act === 'sell') return Order.open(sym, 'SELL');
+            if (act === 'rm') {
+              state.watchlist = state.watchlist.filter(x => x !== sym);
+              persist(); Watchlist.render();
+              return;
+            }
           }
-        }
-        if (row) {
-          state.selected = row.dataset.sym;
-          persist();
-          renderQuickPanel();
-          Watchlist.render();
-          Router.go('tab-charts');
-        }
+          if (row) {
+            state.selected = row.dataset.sym;
+            persist();
+            renderQuickPanel();
+            Watchlist.render();
+            if (window.innerWidth > 768) {
+              Router.go('tab-charts');
+            }
+          }
+        });
       });
       bus.on('quotes', () => Watchlist.render());
     },
@@ -701,68 +707,86 @@
   // ───────────────────────── Search ─────────────────────────
   const Search = {
     init() {
-      const inp = $('#global-search');
-      const dd  = $('#search-results');
-      const close = () => {
-        dd.classList.add('hidden');
-        dd.innerHTML = '';
-      };
-      const open  = () => dd.classList.remove('hidden');
-      const renderResults = () => {
-        const list = searchSymbols(inp.value);
-        if (!list.length) { close(); return list; }
-        dd.innerHTML = list.map((s, i) => `
-          <div class="sr-row ${i === 0 ? 'highlight' : ''}" data-sym="${s.sym}">
-            <div>
-              <div class="sr-sym">${s.sym}</div>
-              <div class="sr-name">${s.name}</div>
-            </div>
-            <div class="sr-actions">
-              <button class="sr-add" data-sym="${s.sym}" data-act="watch">+ Watch</button>
-              <button class="sr-buy" data-sym="${s.sym}" data-act="buy">Buy</button>
-            </div>
-          </div>`).join('');
-        open();
-        return list;
-      };
-      const openSym = (sym) => {
-        state.selected = sym;
-        persist();
-        renderQuickPanel();
-        Watchlist.render();
-        Router.go('tab-charts');
-        inp.value = ''; close();
-      };
-      inp.addEventListener('input', () => renderResults());
-      inp.addEventListener('focus', () => { if (inp.value) renderResults(); });
-      inp.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') {
-          e.preventDefault();
+      const inputs = [$('#global-search'), $('#mobile-search')].filter(Boolean);
+      const dds    = [$('#search-results'), $('#mobile-search-results')].filter(Boolean);
+
+      inputs.forEach((inp, idx) => {
+        const dd = dds[idx];
+        if (!inp || !dd) return;
+
+        const close = () => {
+          dd.classList.add('hidden');
+          dd.innerHTML = '';
+        };
+        const open  = () => dd.classList.remove('hidden');
+
+        const renderResults = () => {
           const list = searchSymbols(inp.value);
-          if (list[0]) openSym(list[0].sym);
-        } else if (e.key === 'Escape') {
-          close(); inp.blur();
-        }
+          if (!list.length) { close(); return list; }
+          dd.innerHTML = list.map((s, i) => `
+            <div class="sr-row ${i === 0 ? 'highlight' : ''}" data-sym="${s.sym}">
+              <div>
+                <div class="sr-sym">${s.sym}</div>
+                <div class="sr-name">${s.name}</div>
+              </div>
+              <div class="sr-actions">
+                <button class="sr-add" data-sym="${s.sym}" data-act="watch">+ Watch</button>
+                <button class="sr-buy" data-sym="${s.sym}" data-act="buy">Buy</button>
+              </div>
+            </div>`).join('');
+          open();
+          return list;
+        };
+
+        const openSym = (sym) => {
+          state.selected = sym;
+          persist();
+          renderQuickPanel();
+          Watchlist.render();
+          Router.go('tab-charts');
+          inp.value = ''; close();
+        };
+
+        inp.addEventListener('input', () => renderResults());
+        inp.addEventListener('focus', () => { if (inp.value) renderResults(); });
+        inp.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            const list = searchSymbols(inp.value);
+            if (list[0]) openSym(list[0].sym);
+          } else if (e.key === 'Escape') {
+            close(); inp.blur();
+          }
+        });
+
+        dd.addEventListener('click', (e) => {
+          const btn = e.target.closest('button');
+          if (btn) {
+            if (btn.dataset.act === 'watch') Watchlist.add(btn.dataset.sym);
+            if (btn.dataset.act === 'buy')   Order.open(btn.dataset.sym, 'BUY');
+            inp.value = ''; close(); return;
+          }
+          const row = e.target.closest('.sr-row');
+          if (row) openSym(row.dataset.sym);
+        });
       });
-      document.addEventListener('click', (e) => { 
-        if (!e.target.closest('.search-wrap')) {
-          inp.value = '';
-          close(); 
-        }
+
+      document.addEventListener('click', (e) => {
+        inputs.forEach((inp, idx) => {
+          const dd = dds[idx];
+          if (!e.target.closest('.search-wrap')) {
+            inp.value = '';
+            dd.classList.add('hidden');
+            dd.innerHTML = '';
+          }
+        });
       });
-      dd.addEventListener('click', (e) => {
-        const btn = e.target.closest('button');
-        if (btn) {
-          if (btn.dataset.act === 'watch') Watchlist.add(btn.dataset.sym);
-          if (btn.dataset.act === 'buy')   Order.open(btn.dataset.sym, 'BUY');
-          inp.value = ''; close(); return;
-        }
-        const row = e.target.closest('.sr-row');
-        if (row) openSym(row.dataset.sym);
-      });
+
       document.addEventListener('keydown', (e) => {
         if (e.key === '/' && !['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName)) {
-          e.preventDefault(); inp.focus();
+          e.preventDefault();
+          const visibleInp = inputs.find(i => i.getBoundingClientRect().width > 0);
+          if (visibleInp) visibleInp.focus();
         }
       });
     }
@@ -797,40 +821,43 @@
   // ───────────────────────── Quick panel ─────────────────────────
   const renderQuickPanel = () => {
     const sym = state.selected;
-    const root = $('#quick-panel');
-    if (!sym || !root) return;
+    const roots = [$('#quick-panel'), $('#mobile-quick-panel')].filter(Boolean);
+    if (!sym || !roots.length) return;
     const meta = bySym[sym] || { name: sym };
     const q = state.quotes[sym] || {};
     const ltp = q.ltp ?? TL.STATIC.fallback[sym]?.close ?? 0;
     const pct = q.pct ?? 0;
     const cls = pct >= 0 ? 'pos' : 'neg';
-    root.innerHTML = `
-      <div class="qp-head">
-        <div>
-          <div class="qp-sym">${sym}</div>
-          <div class="qp-name">${meta.name}</div>
+
+    roots.forEach(root => {
+      root.innerHTML = `
+        <div class="qp-head">
+          <div>
+            <div class="qp-sym">${sym}</div>
+            <div class="qp-name">${meta.name}</div>
+          </div>
+          <div class="qp-px">
+            <div class="qp-ltp">${fmt.inr(ltp)}</div>
+            <div class="qp-pct ${cls}">${fmt.pct(pct)}</div>
+          </div>
         </div>
-        <div class="qp-px">
-          <div class="qp-ltp">${fmt.inr(ltp)}</div>
-          <div class="qp-pct ${cls}">${fmt.pct(pct)}</div>
+        <div class="qp-grid">
+          <div><span>Open</span><b>${q.open  != null ? fmt.inr(q.open)     : '—'}</b></div>
+          <div><span>High</span><b>${q.dayHigh != null ? fmt.inr(q.dayHigh) : '—'}</b></div>
+          <div><span>Low</span> <b>${q.dayLow  != null ? fmt.inr(q.dayLow)  : '—'}</b></div>
+          <div><span>Prev</span><b>${q.prevClose != null ? fmt.inr(q.prevClose) : '—'}</b></div>
         </div>
-      </div>
-      <div class="qp-grid">
-        <div><span>Open</span><b>${q.open  != null ? fmt.inr(q.open)     : '—'}</b></div>
-        <div><span>High</span><b>${q.dayHigh != null ? fmt.inr(q.dayHigh) : '—'}</b></div>
-        <div><span>Low</span> <b>${q.dayLow  != null ? fmt.inr(q.dayLow)  : '—'}</b></div>
-        <div><span>Prev</span><b>${q.prevClose != null ? fmt.inr(q.prevClose) : '—'}</b></div>
-      </div>
-      <div class="qp-actions">
-        <button class="btn-buy"   data-act="buy">BUY</button>
-        <button class="btn-sell"  data-act="sell">SELL</button>
-        <button class="btn-chart" data-act="chart">Chart →</button>
-      </div>`;
-    root.querySelectorAll('button').forEach(b => {
-      b.addEventListener('click', () => {
-        if (b.dataset.act === 'buy')   Order.open(sym, 'BUY');
-        if (b.dataset.act === 'sell')  Order.open(sym, 'SELL');
-        if (b.dataset.act === 'chart') Router.go('tab-charts');
+        <div class="qp-actions">
+          <button class="btn-buy"   data-act="buy">BUY</button>
+          <button class="btn-sell"  data-act="sell">SELL</button>
+          <button class="btn-chart" data-act="chart">Chart →</button>
+        </div>`;
+      root.querySelectorAll('button').forEach(b => {
+        b.addEventListener('click', () => {
+          if (b.dataset.act === 'buy')   Order.open(sym, 'BUY');
+          if (b.dataset.act === 'sell')  Order.open(sym, 'SELL');
+          if (b.dataset.act === 'chart') Router.go('tab-charts');
+        });
       });
     });
   };
@@ -867,11 +894,17 @@
   // ───────────────────────── Tab Router ─────────────────────────
   const Router = {
     go(id) {
-      // Fall back to dashboard if the persisted activeTab no longer matches.
       if (!document.getElementById(id)) id = 'tab-dashboard';
       state.activeTab = id;
       $$('.tab-pane').forEach(p => p.classList.toggle('hidden', p.id !== id));
       $$('.tab-link').forEach(l => l.classList.toggle('active', l.dataset.tab === id));
+      
+      // Update mobile bottom nav active classes
+      $$('.mobile-bottom-nav .nav-item').forEach(l => {
+        const isTarget = l.dataset.tab === id || (id === 'tab-positions' && l.dataset.tab === 'tab-holdings');
+        l.classList.toggle('active', isTarget);
+      });
+
       persist();
       const fn = Views[id];
       if (fn) {
@@ -883,6 +916,16 @@
       $$('.tab-link').forEach(l => l.addEventListener('click', (e) => {
         e.preventDefault(); this.go(l.dataset.tab);
       }));
+      
+      // Mobile bottom nav clicks
+      $$('.mobile-bottom-nav .nav-item').forEach(l => {
+        if (l.id === 'mobile-more-btn') return;
+        l.addEventListener('click', (e) => {
+          e.preventDefault();
+          this.go(l.dataset.tab);
+        });
+      });
+
       this.go(state.activeTab || 'tab-dashboard');
     }
   };
@@ -926,6 +969,11 @@
 
   // ───────────────────────── Views ─────────────────────────
   const Views = {};
+
+  Views['tab-watchlist'] = () => {
+    Watchlist.render();
+    renderQuickPanel();
+  };
 
   Views['tab-dashboard'] = () => {
     // Newbie Path Logic
@@ -1877,6 +1925,12 @@
       markNewbie('firstOrder');
       markNewbie('task-strategy');
     };
+
+    // Mobile trade action buttons
+    const mobBuy = $('#sd-mobile-buy');
+    const mobSell = $('#sd-mobile-sell');
+    if (mobBuy)  mobBuy.onclick  = () => Order.open(sym, 'BUY');
+    if (mobSell) mobSell.onclick = () => Order.open(sym, 'SELL');
   };
 
   const initSdCommentForm = (sym) => {
@@ -2078,6 +2132,7 @@
       const closeBtn = $('#menu-close');
       const backdrop = $('#menu-backdrop');
       const drawer = $('#mobile-menu');
+      const moreBtn = $('#mobile-more-btn');
 
       if (!menuBtn || !drawer) return;
 
@@ -2089,6 +2144,12 @@
       };
 
       menuBtn.addEventListener('click', () => toggle(false));
+      if (moreBtn) {
+        moreBtn.addEventListener('click', (e) => {
+          e.preventDefault();
+          toggle(false);
+        });
+      }
       closeBtn.addEventListener('click', () => toggle(true));
       backdrop.addEventListener('click', () => toggle(true));
 
@@ -2137,6 +2198,7 @@
     bus.on('quotes',   () => {
       if (state.activeTab === 'tab-dashboard') safe('dashboard view', () => Views['tab-dashboard']());
       if (state.activeTab === 'tab-holdings')  safe('holdings view',  () => Views['tab-holdings']());
+      if (state.activeTab === 'tab-watchlist') safe('watchlist view', () => Views['tab-watchlist']());
     });
 
     const prime = [...new Set(['NIFTY50', 'BANKNIFTY', 'NIFTYIT',
